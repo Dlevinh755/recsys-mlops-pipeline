@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reco-mlops-libs"
+version = "0.6.0"
+description = "Shared contracts and utilities for Recommendation MLOps"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Recommendation MLOps Team" }]
+dependencies = [
+    "pyiceberg[pyarrow,s3fs]==0.12.0",
+    "pandera==0.33.1",
+    "pandas==2.3.3",
+    "mlflow==3.12.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reco_mlops_libs"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

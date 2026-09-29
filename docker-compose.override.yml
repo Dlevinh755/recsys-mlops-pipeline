@@ -1,0 +1,50 @@
+# Phase 7 — observability sidecars only (Prometheus/Grafana + the 2
+# exporters needed to scrape redis/airflow, which don't expose Prometheus
+# metrics themselves — see docs/modules/phase-7-monitoring.md). Kept out of
+# docker-compose.yml per CLAUDE.md "không thêm dependency chỉ phục vụ
+# observability/demo vào compose chính". `docker compose` auto-loads this
+# file alongside docker-compose.yml — no extra flag needed for `make up`,
+# but it can be dropped from a run with `docker compose -f docker-compose.yml ...`
+# if you want infra without these.
+services:
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.68.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [reco-net]
+
+  statsd-exporter:
+    image: prom/statsd-exporter:v0.28.0
+    command:
+      - --statsd.listen-udp=:9125
+      - --web.listen-address=:9102
+    restart: unless-stopped
+    networks: [reco-net]
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    restart: unless-stopped
+    networks: [reco-net]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-local_grafana_password_change_me}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks: [reco-net]

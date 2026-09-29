@@ -1,0 +1,21 @@
+# Feast repo config — see docs/modules/phase-3-feature-store.md for why the
+# values below are hardcoded to in-network Docker service names rather than
+# templated: this repo only ever runs inside the `reco-net` Compose network
+# (via the `materialize` job image), same as every other job's env vars.
+#
+# `registry` is on MinIO, not a local file: `docker compose run` starts a
+# fresh container each time, so a local registry.db would not survive
+# between `feast apply` and a later `get_online_features` call from a
+# different container run — same class of problem fixed for Extract in
+# docs/decisions/0003-extract-writes-directly-to-minio.md. Needs the
+# AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_ENDPOINT_URL_S3 env vars set
+# on the materialize-job service in docker-compose.yml.
+project: reco_mlops
+provider: local
+registry: s3://feast-offline-store/registry.db
+online_store:
+  type: redis
+  connection_string: "redis:6379"
+offline_store:
+  type: file
+entity_key_serialization_version: 3

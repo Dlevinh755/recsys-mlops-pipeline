@@ -1,0 +1,23 @@
+# fastapi/uvicorn intentionally unpinned: pip needs freedom to pick
+# versions compatible with feast+mlflow together (see
+# docs/decisions/0007-downgrade-feast-for-mlflow-compat.md). Resolved to
+# fastapi==0.141.1, uvicorn==0.34.0 as of this writing — re-run
+# `pip install --dry-run` before hard-pinning if this ever needs revisiting.
+fastapi
+uvicorn[standard]
+# Downgraded from 0.66.0 (materialize-job's original pin) — feast>=0.66.0
+# requires starlette>=1.0.1, which conflicts with mlflow-skinny==3.12.0's
+# starlette<1 cap. Kept in lockstep with requirements/materialize.txt to
+# avoid any Feast registry-format drift between the two images. `aws` extra
+# required: feature_repo/feature_store.yaml's registry lives on MinIO
+# (s3://feast-offline-store/registry.db).
+feast[redis,aws]==0.55.0
+# redis intentionally NOT pinned here: feast[redis]==0.55.0 caps redis<5,
+# conflicting with a hard ==5.2.1 pin — let feast bring a compatible client
+# (resolves to redis==4.6.0, which has every method this service uses:
+# get/set/delete/rpush/ltrim/expire/lrange).
+prometheus-client==0.24.1
+psycopg[binary]==3.2.9
+# Only needed by fastapi.testclient.TestClient (serving/tests/) — no
+# starlette dependency itself, no conflict risk.
+httpx==0.28.1

@@ -1,0 +1,4 @@
+# MLflow is wired to its dedicated Postgres and MinIO in the canonical root
+# docker-compose.yml. Start only this slice with:
+# docker compose up -d mlflow-db minio minio-init mlflow
+services: {}

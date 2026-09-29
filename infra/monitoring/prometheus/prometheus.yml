@@ -1,0 +1,19 @@
+# Phase 7 — 3 targets, not "serving/airflow/redis" literally: redis and
+# airflow don't expose a Prometheus-format /metrics themselves, so their
+# exporters (defined in docker-compose.override.yml) stand in for them —
+# see docs/modules/phase-7-monitoring.md.
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: serving
+    static_configs:
+      - targets: ["serving:8000"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: airflow
+    static_configs:
+      - targets: ["statsd-exporter:9102"]

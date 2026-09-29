@@ -1,0 +1,525 @@
+name: ${COMPOSE_PROJECT_NAME:-recommendation-mlops}
+
+services:
+  source-db:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: ${SOURCE_DB_NAME:-recommendation}
+      POSTGRES_USER: ${SOURCE_DB_USER:-reco_app}
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD:-local_source_password_change_me}
+    ports:
+      - "${SOURCE_DB_PORT:-5433}:5432"
+    volumes:
+      - source_db_data:/var/lib/postgresql/data
+      - ./infra/source-db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [reco-net]
+
+  catalog-db:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME:-lakekeeper}
+      POSTGRES_USER: ${CATALOG_DB_USER:-lakekeeper}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:-local_catalog_password_change_me}
+    ports:
+      - "${CATALOG_DB_PORT:-5434}:5432"
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [reco-net]
+
+  mlflow-db:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: ${MLFLOW_DB_NAME:-mlflow}
+      POSTGRES_USER: ${MLFLOW_DB_USER:-mlflow}
+      POSTGRES_PASSWORD: ${MLFLOW_DB_PASSWORD:-local_mlflow_password_change_me}
+    ports:
+      - "${MLFLOW_DB_PORT:-5435}:5432"
+    volumes:
+      - mlflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [reco-net]
+
+  minio:
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      MINIO_SITE_REGION: ${MINIO_REGION:-us-east-1}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [reco-net]
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_BUCKET: ${ICEBERG_BUCKET:-iceberg-warehouse}
+      MLFLOW_ARTIFACT_BUCKET: ${MLFLOW_ARTIFACT_BUCKET:-mlflow-artifacts}
+      EXTRACT_STAGING_BUCKET: ${EXTRACT_STAGING_BUCKET:-extract-staging}
+      FEAST_OFFLINE_STORE_BUCKET: ${FEAST_OFFLINE_STORE_BUCKET:-feast-offline-store}
+      MONITORING_BASELINE_BUCKET: ${MONITORING_BASELINE_BUCKET:-monitoring-baseline}
+      MONITORING_REPORTS_BUCKET: ${MONITORING_REPORTS_BUCKET:-monitoring-reports}
+    volumes:
+      - ./infra/minio/init-buckets.sh:/opt/init-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/opt/init-buckets.sh"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  catalog-migrate:
+    image: ${LAKEKEEPER_IMAGE:-quay.io/lakekeeper/catalog:v0.12.1}
+    command: ["migrate"]
+    environment:
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://${CATALOG_DB_USER:-lakekeeper}:${CATALOG_DB_PASSWORD:-local_catalog_password_change_me}@catalog-db:5432/${CATALOG_DB_NAME:-lakekeeper}
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://${CATALOG_DB_USER:-lakekeeper}:${CATALOG_DB_PASSWORD:-local_catalog_password_change_me}@catalog-db:5432/${CATALOG_DB_NAME:-lakekeeper}
+      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_PG_ENCRYPTION_KEY:-local-only-encryption-key-change-me-32chars}
+      RUST_LOG: info
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  lakekeeper:
+    image: ${LAKEKEEPER_IMAGE:-quay.io/lakekeeper/catalog:v0.12.1}
+    command: ["serve"]
+    env_file:
+      - ./infra/iceberg-catalog/catalog.env
+    environment:
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://${CATALOG_DB_USER:-lakekeeper}:${CATALOG_DB_PASSWORD:-local_catalog_password_change_me}@catalog-db:5432/${CATALOG_DB_NAME:-lakekeeper}
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://${CATALOG_DB_USER:-lakekeeper}:${CATALOG_DB_PASSWORD:-local_catalog_password_change_me}@catalog-db:5432/${CATALOG_DB_NAME:-lakekeeper}
+      LAKEKEEPER__PG_ENCRYPTION_KEY: ${LAKEKEEPER_PG_ENCRYPTION_KEY:-local-only-encryption-key-change-me-32chars}
+    ports:
+      - "${LAKEKEEPER_PORT:-8181}:8181"
+    healthcheck:
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      catalog-migrate:
+        condition: service_completed_successfully
+      catalog-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [reco-net]
+
+  extract-job:
+    profiles: [jobs]
+    # `image:` + `build:` together support 2 modes (Phase 8, ADR 0005):
+    # `docker compose build` (dev) always builds local; `docker compose pull`
+    # (no build) fetches the exact image Jenkins already built+tested+pushed
+    # for `IMAGE_TAG` (git SHA). `local`/`dev` defaults keep today's
+    # build-only workflow unchanged when neither var is set.
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-extract:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/extract/Dockerfile
+    environment:
+      SOURCE_DB_DSN: ${SOURCE_DB_DSN:-postgresql://reco_app:local_source_password_change_me@source-db:5432/recommendation}
+      DLT_PIPELINES_DIR: ${DLT_PIPELINES_DIR:-/data/dlt-pipelines}
+      RUNTIME__DLTHUB_TELEMETRY: "false"
+      EXTRACT_PAGE_SIZE: ${EXTRACT_PAGE_SIZE:-1000}
+      EXTRACT_FAIL_AFTER_ROWS: ${EXTRACT_FAIL_AFTER_ROWS:-}
+      EXTRACT_S3_ENDPOINT: ${EXTRACT_S3_ENDPOINT:-http://minio:9000}
+      EXTRACT_S3_BUCKET: ${EXTRACT_STAGING_BUCKET:-extract-staging}
+      EXTRACT_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      EXTRACT_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      EXTRACT_S3_REGION: ${MINIO_REGION:-us-east-1}
+    volumes:
+      # dlt's own working directory (schema/state cache) only — the actual
+      # extracted data goes to MinIO (EXTRACT_S3_BUCKET), not this volume.
+      - ./data/dlt-pipelines:/data/dlt-pipelines
+    depends_on:
+      source-db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: "no"
+    networks: [reco-net]
+
+  transform-job:
+    profiles: [jobs]
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-transform:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/transform/Dockerfile
+    environment:
+      EXTRACT_S3_ENDPOINT: ${EXTRACT_S3_ENDPOINT:-http://minio:9000}
+      EXTRACT_S3_BUCKET: ${EXTRACT_STAGING_BUCKET:-extract-staging}
+      EXTRACT_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      EXTRACT_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      EXTRACT_S3_REGION: ${MINIO_REGION:-us-east-1}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-http://lakekeeper:8181/catalog}
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_S3_ENDPOINT: ${ICEBERG_S3_ENDPOINT:-http://minio:9000}
+      ICEBERG_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      ICEBERG_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_S3_REGION: ${MINIO_REGION:-us-east-1}
+    depends_on:
+      catalog-bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+    networks: [reco-net]
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    networks: [reco-net]
+    # No persistence: Redis here is only an online-feature cache rebuilt
+    # from Gold by `feast materialize` (jobs/materialize/feast_materialize.py)
+    # every run — losing it on restart is fine, no volume needed.
+
+  materialize-job:
+    profiles: [jobs]
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-materialize:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/materialize/Dockerfile
+    environment:
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-http://lakekeeper:8181/catalog}
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_S3_ENDPOINT: ${ICEBERG_S3_ENDPOINT:-http://minio:9000}
+      ICEBERG_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      ICEBERG_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_S3_REGION: ${MINIO_REGION:-us-east-1}
+      FEAST_S3_ENDPOINT: ${FEAST_S3_ENDPOINT:-http://minio:9000}
+      FEAST_S3_BUCKET: ${FEAST_OFFLINE_STORE_BUCKET:-feast-offline-store}
+      FEAST_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      FEAST_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      FEAST_S3_REGION: ${MINIO_REGION:-us-east-1}
+      # feast's own S3 client (FileSource) reads standard AWS env vars, not
+      # our ICEBERG_S3_*/FEAST_S3_* names.
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      AWS_DEFAULT_REGION: ${MINIO_REGION:-us-east-1}
+      AWS_ENDPOINT_URL_S3: ${FEAST_S3_ENDPOINT:-http://minio:9000}
+    depends_on:
+      catalog-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  training-job:
+    profiles: [jobs]
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-training:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/training/Dockerfile
+    environment:
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-http://lakekeeper:8181/catalog}
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_S3_ENDPOINT: ${ICEBERG_S3_ENDPOINT:-http://minio:9000}
+      ICEBERG_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      ICEBERG_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_S3_REGION: ${MINIO_REGION:-us-east-1}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      AWS_DEFAULT_REGION: ${MINIO_REGION:-us-east-1}
+      # Phase 5: jobs.candidates.similar_items writes to Redis.
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+    depends_on:
+      catalog-bootstrap:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  monitoring-job:
+    profiles: [jobs]
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-monitoring:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/monitoring/Dockerfile
+    environment:
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-http://lakekeeper:8181/catalog}
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_S3_ENDPOINT: ${ICEBERG_S3_ENDPOINT:-http://minio:9000}
+      ICEBERG_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      ICEBERG_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_S3_REGION: ${MINIO_REGION:-us-east-1}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      MONITORING_S3_ENDPOINT: http://minio:9000
+      MONITORING_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MONITORING_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      MONITORING_S3_REGION: ${MINIO_REGION:-us-east-1}
+      MONITORING_BASELINE_BUCKET: ${MONITORING_BASELINE_BUCKET:-monitoring-baseline}
+      MONITORING_REPORTS_BUCKET: ${MONITORING_REPORTS_BUCKET:-monitoring-reports}
+    depends_on:
+      catalog-bootstrap:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  catalog-bootstrap:
+    image: curlimages/curl:8.14.1
+    environment:
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_BUCKET: ${ICEBERG_BUCKET:-iceberg-warehouse}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+    volumes:
+      - ./infra/iceberg-catalog/bootstrap.sh:/opt/bootstrap.sh:ro
+    entrypoint: ["/bin/sh", "/opt/bootstrap.sh"]
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: "no"
+    networks: [reco-net]
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: infra/docker/mlflow/Dockerfile
+      args:
+        MLFLOW_IMAGE: ${MLFLOW_IMAGE:-ghcr.io/mlflow/mlflow:v3.12.0}
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=postgresql+psycopg2://${MLFLOW_DB_USER:-mlflow}:${MLFLOW_DB_PASSWORD:-local_mlflow_password_change_me}@mlflow-db:5432/${MLFLOW_DB_NAME:-mlflow}
+      - --artifacts-destination=s3://${MLFLOW_ARTIFACT_BUCKET:-mlflow-artifacts}
+      - --allowed-hosts=${MLFLOW_ALLOWED_HOSTS:-localhost:5000,127.0.0.1:5000,mlflow:5000}
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      AWS_DEFAULT_REGION: ${MINIO_REGION:-us-east-1}
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: [reco-net]
+
+  serving:
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-serving:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/serving/Dockerfile
+    environment:
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-http://lakekeeper:8181/catalog}
+      ICEBERG_WAREHOUSE_NAME: ${ICEBERG_WAREHOUSE_NAME:-reco}
+      ICEBERG_S3_ENDPOINT: ${ICEBERG_S3_ENDPOINT:-http://minio:9000}
+      ICEBERG_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      ICEBERG_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      ICEBERG_S3_REGION: ${MINIO_REGION:-us-east-1}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      SOURCE_DB_DSN: ${SOURCE_DB_DSN:-postgresql://reco_app:local_source_password_change_me@source-db:5432/recommendation}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Feast's own S3 client (FileSource, used by `feature_store.yaml`'s
+      # registry) reads standard AWS env vars — same as materialize-job.
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
+      AWS_DEFAULT_REGION: ${MINIO_REGION:-us-east-1}
+      AWS_ENDPOINT_URL_S3: ${FEAST_S3_ENDPOINT:-http://minio:9000}
+      MODEL_POLL_INTERVAL_SECONDS: ${MODEL_POLL_INTERVAL_SECONDS:-60}
+      FALLBACK_REFRESH_INTERVAL_SECONDS: ${FALLBACK_REFRESH_INTERVAL_SECONDS:-300}
+    ports:
+      - "${SERVING_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+      source-db:
+        condition: service_healthy
+      catalog-bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: [reco-net]
+
+  ui:
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-ui:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/ui/Dockerfile
+    environment:
+      SERVING_BASE_URL: http://serving:8000
+    ports:
+      - "${UI_PORT:-8501}:8501"
+    depends_on:
+      - serving
+    restart: unless-stopped
+    networks: [reco-net]
+
+  # --- Phase 6: Airflow orchestration -------------------------------------
+  # Started separately via `make airflow-up`, not part of `make up` — same
+  # reasoning as CLAUDE.md's "không thêm dependency chỉ phục vụ
+  # observability/demo": every job here already runs and is verified
+  # independently (Phase 1-5), Airflow only re-triggers them on a schedule.
+
+  airflow-db:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
+      POSTGRES_USER: ${AIRFLOW_DB_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-local_airflow_password_change_me}
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [reco-net]
+
+  airflow-init:
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-airflow:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/airflow/Dockerfile
+    environment: &airflow-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-local_airflow_password_change_me}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-OtkNHB44Oe-WP_N0P6CGuvzzS4u4x8dIbrrAGubDb40=}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-recommendation-mlops}
+      AIRFLOW_PROJECT_DIR: /opt/airflow/project
+      PYTHONPATH: /opt/airflow/plugins
+      # Phase 7 — Airflow's own operational metrics, scraped by Prometheus
+      # via statsd-exporter (docker-compose.override.yml). Env var on the
+      # existing Airflow service, not a new observability-only service, so
+      # it lives in the main compose file per de-xuat-trien-khai.md Phase 7.
+      AIRFLOW__METRICS__STATSD_ON: "True"
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: "9125"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate && \
+        airflow users create \
+          --username "${AIRFLOW_ADMIN_USER:-admin}" \
+          --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" \
+          --firstname admin --lastname admin --role Admin \
+          --email admin@example.com || true
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    restart: "no"
+    networks: [reco-net]
+
+  airflow-webserver:
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-airflow:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/airflow/Dockerfile
+    environment: *airflow-env
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    volumes: &airflow-volumes
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/logs:/opt/airflow/logs
+      - .:/opt/airflow/project:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: [reco-net]
+
+  airflow-scheduler:
+    image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-airflow:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: infra/docker/airflow/Dockerfile
+    environment: *airflow-env
+    command: scheduler
+    volumes: *airflow-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: [reco-net]
+
+networks:
+  reco-net:
+    name: ${COMPOSE_PROJECT_NAME:-recommendation-mlops}-net
+
+volumes:
+  source_db_data:
+  catalog_db_data:
+  mlflow_db_data:
+  minio_data:
+  airflow_db_data:

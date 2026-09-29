@@ -1,0 +1,5 @@
+# Phase 7 — data/model quality monitoring. `mlflow`/`pyiceberg`/`pandas`
+# already come from `-e ../libs`; this file only adds what libs deliberately
+# keeps out (evidently, s3fs — see libs/README.md).
+evidently==0.4.40
+s3fs==2026.7.0

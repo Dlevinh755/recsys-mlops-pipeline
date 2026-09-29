@@ -1,0 +1,30 @@
+# Phase 8 — used only by the Jenkinsfile `Integration Test` stage:
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml \
+#     -f docker-compose.ci.yml up -d --build
+#
+# Compose *merges* (concatenates) a service's `ports:` list by default when
+# an override file redeclares it — `ports: []` alone is a no-op, the base
+# file's entries survive. `!reset` (Compose v2.24+/v5) is the explicit way
+# to clear a list instead of appending to it — verified empirically here
+# (`docker compose config` showed the base ports still present before this
+# was added). CI never needs `localhost:<port>` access — every test runs
+# *inside* a container already on `reco-net` (same network the app services
+# join), reaching them by service name (`lakekeeper:8181`, `minio:9000`,
+# ...). Two parallel Jenkins builds already get separate networks from
+# `COMPOSE_PROJECT_NAME=reco-ci-${BUILD_NUMBER}` (docker-compose.yml's own
+# `name:`/`networks.reco-net.name` already key off this var — nothing to
+# change there), but host ports are global to the machine regardless of
+# project name, so they still need to be dropped explicitly here.
+services:
+  source-db: { ports: !reset [] }
+  catalog-db: { ports: !reset [] }
+  mlflow-db: { ports: !reset [] }
+  minio: { ports: !reset [] }
+  lakekeeper: { ports: !reset [] }
+  redis: { ports: !reset [] }
+  mlflow: { ports: !reset [] }
+  serving: { ports: !reset [] }
+  ui: { ports: !reset [] }
+  airflow-webserver: { ports: !reset [] }
+  prometheus: { ports: !reset [] }
+  grafana: { ports: !reset [] }

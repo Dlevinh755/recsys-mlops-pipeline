@@ -1,0 +1,2 @@
+# DockerOperator lives in this provider, not Airflow core.
+apache-airflow-providers-docker==3.14.1

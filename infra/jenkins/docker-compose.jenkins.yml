@@ -1,0 +1,37 @@
+# Phase 8 — Jenkins CI (ADR 0005). Standalone compose file, not part of the
+# app stack's `docker-compose.yml` (CLAUDE.md: a service that only serves
+# CI/demo doesn't belong in the main compose file) — same pattern as
+# `infra/mlflow/docker-compose.mlflow.yml` / `infra/source-db/`.
+#
+# Run from `recommendation-mlops/`:
+#   docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build
+#
+# Jenkins itself does not join `reco-net`: pipeline stages spin up their own
+# full, isolated app stack per build (`COMPOSE_PROJECT_NAME=reco-ci-<BUILD_NUMBER>`,
+# see Jenkinsfile) via the mounted Docker socket — Jenkins never talks to
+# app services directly, only to the host Docker daemon.
+name: mlops4rec-jenkins
+
+services:
+  jenkins:
+    build:
+      context: ../..
+      dockerfile: infra/docker/jenkins/Dockerfile
+    environment:
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
+      # Access Token, not the Docker Hub account password — see ADR 0005.
+      DOCKERHUB_USERNAME: ${DOCKERHUB_USERNAME:-}
+      DOCKERHUB_TOKEN: ${DOCKERHUB_TOKEN:-}
+    ports:
+      - "${JENKINS_PORT:-8090}:8080"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./casc.yaml:/var/jenkins_home/casc.yaml:ro
+      # Sibling-container pattern (same as Airflow, Phase 6) — Jenkins has
+      # no Docker daemon of its own, it talks to the host's.
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:

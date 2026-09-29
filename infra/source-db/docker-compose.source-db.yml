@@ -1,0 +1,21 @@
+services:
+  source-db:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: ${SOURCE_DB_NAME:-recommendation}
+      POSTGRES_USER: ${SOURCE_DB_USER:-reco_app}
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD:-local_source_password_change_me}
+    ports:
+      - "${SOURCE_DB_PORT:-5433}:5432"
+    volumes:
+      - source_db_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  source_db_data:

@@ -1,0 +1,1472 @@
+[
+  {
+    "user_id": "user_000",
+    "item_sequence": [
+      "item_001",
+      "item_047",
+      "item_017"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_001",
+    "item_sequence": [
+      "item_014",
+      "item_008",
+      "item_047",
+      "item_006",
+      "item_043"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_002",
+    "item_sequence": [
+      "item_005",
+      "item_037",
+      "item_027",
+      "item_002",
+      "item_001",
+      "item_005",
+      "item_013",
+      "item_014",
+      "item_032",
+      "item_038"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_003",
+    "item_sequence": [
+      "item_035",
+      "item_012"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_004",
+    "item_sequence": [
+      "item_026",
+      "item_014",
+      "item_028",
+      "item_037",
+      "item_017",
+      "item_051",
+      "item_055",
+      "item_000",
+      "item_048",
+      "item_051"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_005",
+    "item_sequence": [
+      "item_044",
+      "item_027",
+      "item_021",
+      "item_017"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_006",
+    "item_sequence": [
+      "item_013",
+      "item_048",
+      "item_021",
+      "item_006"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_007",
+    "item_sequence": [
+      "item_024",
+      "item_006",
+      "item_022"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_008",
+    "item_sequence": [
+      "item_038",
+      "item_016",
+      "item_051",
+      "item_002",
+      "item_046",
+      "item_029",
+      "item_034"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_009",
+    "item_sequence": [
+      "item_059",
+      "item_024",
+      "item_005"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_010",
+    "item_sequence": [
+      "item_018",
+      "item_053",
+      "item_040",
+      "item_039",
+      "item_056",
+      "item_055",
+      "item_023",
+      "item_036",
+      "item_012",
+      "item_045"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_011",
+    "item_sequence": [
+      "item_002",
+      "item_042",
+      "item_014"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_012",
+    "item_sequence": [
+      "item_005",
+      "item_054",
+      "item_014",
+      "item_055",
+      "item_006",
+      "item_024"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_013",
+    "item_sequence": [
+      "item_029",
+      "item_040",
+      "item_053",
+      "item_023",
+      "item_010",
+      "item_023"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_014",
+    "item_sequence": [
+      "item_013",
+      "item_042",
+      "item_017",
+      "item_044",
+      "item_059",
+      "item_043",
+      "item_041"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_015",
+    "item_sequence": [
+      "item_038",
+      "item_040",
+      "item_010"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_016",
+    "item_sequence": [
+      "item_046",
+      "item_015",
+      "item_010",
+      "item_029",
+      "item_024",
+      "item_017",
+      "item_059",
+      "item_040",
+      "item_044",
+      "item_035"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_017",
+    "item_sequence": [
+      "item_043",
+      "item_020",
+      "item_053",
+      "item_049",
+      "item_049"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_018",
+    "item_sequence": [
+      "item_014",
+      "item_052"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_019",
+    "item_sequence": [
+      "item_051",
+      "item_020"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_020",
+    "item_sequence": [
+      "item_017",
+      "item_004",
+      "item_013",
+      "item_058",
+      "item_036",
+      "item_056",
+      "item_045",
+      "item_020"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_021",
+    "item_sequence": [
+      "item_041",
+      "item_031",
+      "item_025",
+      "item_056",
+      "item_058"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_022",
+    "item_sequence": [
+      "item_009",
+      "item_016",
+      "item_008",
+      "item_015",
+      "item_047",
+      "item_035",
+      "item_034",
+      "item_016",
+      "item_047"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_023",
+    "item_sequence": [
+      "item_057",
+      "item_037",
+      "item_025",
+      "item_023",
+      "item_014",
+      "item_008",
+      "item_032",
+      "item_031"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_024",
+    "item_sequence": [
+      "item_048",
+      "item_003",
+      "item_055"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_025",
+    "item_sequence": [
+      "item_009",
+      "item_040",
+      "item_010"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_026",
+    "item_sequence": [
+      "item_038",
+      "item_004",
+      "item_024",
+      "item_024",
+      "item_038",
+      "item_029",
+      "item_033",
+      "item_016"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_027",
+    "item_sequence": [
+      "item_055",
+      "item_000",
+      "item_043",
+      "item_046",
+      "item_007",
+      "item_043",
+      "item_056",
+      "item_034",
+      "item_048",
+      "item_017"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_028",
+    "item_sequence": [
+      "item_007",
+      "item_018",
+      "item_027",
+      "item_010",
+      "item_029",
+      "item_000",
+      "item_046"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_029",
+    "item_sequence": [
+      "item_032",
+      "item_048",
+      "item_011",
+      "item_032",
+      "item_058",
+      "item_006"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_030",
+    "item_sequence": [
+      "item_053",
+      "item_040",
+      "item_032",
+      "item_038",
+      "item_012",
+      "item_009"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_031",
+    "item_sequence": [
+      "item_048",
+      "item_010",
+      "item_034",
+      "item_049",
+      "item_059",
+      "item_033",
+      "item_058"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_032",
+    "item_sequence": [
+      "item_038",
+      "item_020"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_033",
+    "item_sequence": [
+      "item_001",
+      "item_007",
+      "item_059",
+      "item_023",
+      "item_056",
+      "item_053",
+      "item_051",
+      "item_019",
+      "item_015"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_034",
+    "item_sequence": [
+      "item_015",
+      "item_056"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_035",
+    "item_sequence": [
+      "item_005",
+      "item_046",
+      "item_031"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_036",
+    "item_sequence": [
+      "item_048",
+      "item_034",
+      "item_049"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_037",
+    "item_sequence": [
+      "item_008",
+      "item_042",
+      "item_030",
+      "item_035"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_038",
+    "item_sequence": [
+      "item_016",
+      "item_033",
+      "item_055",
+      "item_038"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_039",
+    "item_sequence": [
+      "item_013",
+      "item_059",
+      "item_034",
+      "item_048",
+      "item_046",
+      "item_044",
+      "item_012",
+      "item_045"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_040",
+    "item_sequence": [
+      "item_025",
+      "item_042",
+      "item_041",
+      "item_023",
+      "item_028",
+      "item_057"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_041",
+    "item_sequence": [
+      "item_028",
+      "item_007",
+      "item_015",
+      "item_014",
+      "item_004",
+      "item_021",
+      "item_001",
+      "item_037",
+      "item_035",
+      "item_014"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_042",
+    "item_sequence": [
+      "item_000",
+      "item_004",
+      "item_045",
+      "item_040",
+      "item_003"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_043",
+    "item_sequence": [
+      "item_004",
+      "item_057",
+      "item_002",
+      "item_055",
+      "item_021"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_044",
+    "item_sequence": [
+      "item_032",
+      "item_015",
+      "item_017"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_045",
+    "item_sequence": [
+      "item_013",
+      "item_034",
+      "item_008",
+      "item_046",
+      "item_059",
+      "item_056",
+      "item_036",
+      "item_036",
+      "item_030"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_046",
+    "item_sequence": [
+      "item_050",
+      "item_030",
+      "item_051",
+      "item_026",
+      "item_012"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_047",
+    "item_sequence": [
+      "item_006",
+      "item_042",
+      "item_027"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_048",
+    "item_sequence": [
+      "item_027",
+      "item_026",
+      "item_029",
+      "item_055",
+      "item_046",
+      "item_003",
+      "item_043"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_049",
+    "item_sequence": [
+      "item_003",
+      "item_025",
+      "item_046"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_050",
+    "item_sequence": [
+      "item_051",
+      "item_055",
+      "item_006",
+      "item_015",
+      "item_012",
+      "item_012",
+      "item_034"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_051",
+    "item_sequence": [
+      "item_008",
+      "item_027",
+      "item_011",
+      "item_017",
+      "item_029",
+      "item_015",
+      "item_055",
+      "item_059",
+      "item_004"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_052",
+    "item_sequence": [
+      "item_051",
+      "item_055",
+      "item_054",
+      "item_035",
+      "item_006",
+      "item_003",
+      "item_041",
+      "item_034",
+      "item_053"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_053",
+    "item_sequence": [
+      "item_005",
+      "item_059"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_054",
+    "item_sequence": [
+      "item_010",
+      "item_026",
+      "item_031",
+      "item_030",
+      "item_013"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_055",
+    "item_sequence": [
+      "item_057",
+      "item_003",
+      "item_010",
+      "item_024",
+      "item_000",
+      "item_024",
+      "item_016",
+      "item_059"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_056",
+    "item_sequence": [
+      "item_018",
+      "item_027",
+      "item_044",
+      "item_046",
+      "item_050",
+      "item_035",
+      "item_042",
+      "item_045",
+      "item_031"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_057",
+    "item_sequence": [
+      "item_012",
+      "item_018",
+      "item_013",
+      "item_003"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_058",
+    "item_sequence": [
+      "item_003",
+      "item_047",
+      "item_020",
+      "item_003",
+      "item_003",
+      "item_037",
+      "item_030",
+      "item_032",
+      "item_058",
+      "item_054"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_059",
+    "item_sequence": [
+      "item_010",
+      "item_003",
+      "item_032",
+      "item_005",
+      "item_054",
+      "item_011",
+      "item_004",
+      "item_038",
+      "item_004",
+      "item_043"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_060",
+    "item_sequence": [
+      "item_025",
+      "item_007",
+      "item_056",
+      "item_036",
+      "item_015"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_061",
+    "item_sequence": [
+      "item_039",
+      "item_005"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_062",
+    "item_sequence": [
+      "item_042",
+      "item_037",
+      "item_036",
+      "item_033",
+      "item_020",
+      "item_059",
+      "item_016",
+      "item_013"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_063",
+    "item_sequence": [
+      "item_015",
+      "item_016",
+      "item_025",
+      "item_008",
+      "item_042",
+      "item_041",
+      "item_019"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_064",
+    "item_sequence": [
+      "item_020",
+      "item_059",
+      "item_048",
+      "item_059",
+      "item_004",
+      "item_000",
+      "item_029",
+      "item_039",
+      "item_036"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_065",
+    "item_sequence": [
+      "item_004",
+      "item_034",
+      "item_013"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_066",
+    "item_sequence": [
+      "item_016",
+      "item_008",
+      "item_059",
+      "item_022",
+      "item_056",
+      "item_004",
+      "item_056",
+      "item_015",
+      "item_023",
+      "item_018"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_067",
+    "item_sequence": [
+      "item_028",
+      "item_053",
+      "item_034",
+      "item_045"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_068",
+    "item_sequence": [
+      "item_039",
+      "item_051",
+      "item_041",
+      "item_033",
+      "item_000",
+      "item_042"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_069",
+    "item_sequence": [
+      "item_019",
+      "item_059",
+      "item_042",
+      "item_006",
+      "item_056",
+      "item_008",
+      "item_016",
+      "item_007",
+      "item_056",
+      "item_006"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_070",
+    "item_sequence": [
+      "item_009",
+      "item_017",
+      "item_018",
+      "item_038",
+      "item_013",
+      "item_045",
+      "item_021",
+      "item_013",
+      "item_043",
+      "item_040"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_071",
+    "item_sequence": [
+      "item_032",
+      "item_031",
+      "item_016",
+      "item_057",
+      "item_058",
+      "item_054"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_072",
+    "item_sequence": [
+      "item_005",
+      "item_040"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_073",
+    "item_sequence": [
+      "item_053",
+      "item_017",
+      "item_002",
+      "item_000",
+      "item_021",
+      "item_049",
+      "item_008",
+      "item_040"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_074",
+    "item_sequence": [
+      "item_010",
+      "item_047",
+      "item_028",
+      "item_035",
+      "item_045",
+      "item_027"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_075",
+    "item_sequence": [
+      "item_000",
+      "item_007",
+      "item_004",
+      "item_056",
+      "item_044",
+      "item_057",
+      "item_009",
+      "item_034",
+      "item_002",
+      "item_053"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_076",
+    "item_sequence": [
+      "item_037",
+      "item_035",
+      "item_009",
+      "item_027",
+      "item_008",
+      "item_002",
+      "item_019"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_077",
+    "item_sequence": [
+      "item_057",
+      "item_059",
+      "item_050",
+      "item_055",
+      "item_002",
+      "item_057",
+      "item_022"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_078",
+    "item_sequence": [
+      "item_043",
+      "item_015",
+      "item_042",
+      "item_006",
+      "item_022"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_079",
+    "item_sequence": [
+      "item_056",
+      "item_055",
+      "item_026",
+      "item_039",
+      "item_047",
+      "item_009",
+      "item_059",
+      "item_059",
+      "item_015",
+      "item_055"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_080",
+    "item_sequence": [
+      "item_051",
+      "item_051",
+      "item_011",
+      "item_056"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_081",
+    "item_sequence": [
+      "item_001",
+      "item_011",
+      "item_047",
+      "item_059",
+      "item_021",
+      "item_050",
+      "item_059",
+      "item_026"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_082",
+    "item_sequence": [
+      "item_017",
+      "item_010",
+      "item_050",
+      "item_044",
+      "item_006"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_083",
+    "item_sequence": [
+      "item_055",
+      "item_002",
+      "item_054",
+      "item_030",
+      "item_014",
+      "item_012",
+      "item_052",
+      "item_058"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_084",
+    "item_sequence": [
+      "item_022",
+      "item_019",
+      "item_052",
+      "item_050",
+      "item_055",
+      "item_014",
+      "item_014",
+      "item_001",
+      "item_042"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_085",
+    "item_sequence": [
+      "item_025",
+      "item_021",
+      "item_017",
+      "item_055",
+      "item_004"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_086",
+    "item_sequence": [
+      "item_022",
+      "item_041",
+      "item_032",
+      "item_025",
+      "item_043",
+      "item_053"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_087",
+    "item_sequence": [
+      "item_021",
+      "item_001",
+      "item_007",
+      "item_056",
+      "item_016",
+      "item_011",
+      "item_037",
+      "item_016",
+      "item_002",
+      "item_006"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_088",
+    "item_sequence": [
+      "item_022",
+      "item_046",
+      "item_050",
+      "item_020",
+      "item_027",
+      "item_038",
+      "item_032",
+      "item_007"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_089",
+    "item_sequence": [
+      "item_057",
+      "item_036",
+      "item_012",
+      "item_016",
+      "item_002",
+      "item_045",
+      "item_027",
+      "item_000"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_090",
+    "item_sequence": [
+      "item_059",
+      "item_051",
+      "item_034",
+      "item_043",
+      "item_046",
+      "item_047",
+      "item_047",
+      "item_042",
+      "item_012",
+      "item_023"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_091",
+    "item_sequence": [
+      "item_004",
+      "item_042",
+      "item_058",
+      "item_021",
+      "item_039",
+      "item_020",
+      "item_042",
+      "item_054"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_092",
+    "item_sequence": [
+      "item_046",
+      "item_057",
+      "item_019"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_093",
+    "item_sequence": [
+      "item_019",
+      "item_042",
+      "item_026",
+      "item_020",
+      "item_025",
+      "item_044",
+      "item_018",
+      "item_035",
+      "item_008",
+      "item_012"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_094",
+    "item_sequence": [
+      "item_042",
+      "item_024",
+      "item_043",
+      "item_047",
+      "item_057",
+      "item_011",
+      "item_039",
+      "item_036"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_095",
+    "item_sequence": [
+      "item_025",
+      "item_035",
+      "item_053",
+      "item_000",
+      "item_019",
+      "item_018"
+    ],
+    "sequence_length": 6
+  },
+  {
+    "user_id": "user_096",
+    "item_sequence": [
+      "item_027",
+      "item_050",
+      "item_037",
+      "item_038",
+      "item_041"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_097",
+    "item_sequence": [
+      "item_029",
+      "item_028",
+      "item_028",
+      "item_043",
+      "item_013",
+      "item_032",
+      "item_030"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_098",
+    "item_sequence": [
+      "item_042",
+      "item_005",
+      "item_018",
+      "item_032"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_099",
+    "item_sequence": [
+      "item_005",
+      "item_052",
+      "item_048",
+      "item_015",
+      "item_043",
+      "item_019",
+      "item_014"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_100",
+    "item_sequence": [
+      "item_009",
+      "item_001",
+      "item_002",
+      "item_015",
+      "item_030"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_101",
+    "item_sequence": [
+      "item_029",
+      "item_026",
+      "item_056"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_102",
+    "item_sequence": [
+      "item_045",
+      "item_044",
+      "item_024",
+      "item_031",
+      "item_025"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_103",
+    "item_sequence": [
+      "item_009",
+      "item_041",
+      "item_044",
+      "item_000",
+      "item_057"
+    ],
+    "sequence_length": 5
+  },
+  {
+    "user_id": "user_104",
+    "item_sequence": [
+      "item_049",
+      "item_027",
+      "item_014"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_105",
+    "item_sequence": [
+      "item_051",
+      "item_044",
+      "item_033",
+      "item_029"
+    ],
+    "sequence_length": 4
+  },
+  {
+    "user_id": "user_106",
+    "item_sequence": [
+      "item_035",
+      "item_015"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_107",
+    "item_sequence": [
+      "item_029",
+      "item_008",
+      "item_051"
+    ],
+    "sequence_length": 3
+  },
+  {
+    "user_id": "user_108",
+    "item_sequence": [
+      "item_042",
+      "item_033",
+      "item_035",
+      "item_038",
+      "item_020",
+      "item_048",
+      "item_057",
+      "item_028",
+      "item_039"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_109",
+    "item_sequence": [
+      "item_027",
+      "item_053",
+      "item_058",
+      "item_035",
+      "item_028",
+      "item_057",
+      "item_010",
+      "item_047",
+      "item_055",
+      "item_030"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_110",
+    "item_sequence": [
+      "item_016",
+      "item_048",
+      "item_015",
+      "item_053",
+      "item_040",
+      "item_017",
+      "item_049",
+      "item_049",
+      "item_033"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_111",
+    "item_sequence": [
+      "item_040",
+      "item_015",
+      "item_017",
+      "item_028",
+      "item_004",
+      "item_045",
+      "item_018",
+      "item_015",
+      "item_017"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_112",
+    "item_sequence": [
+      "item_020",
+      "item_057",
+      "item_034",
+      "item_005",
+      "item_008",
+      "item_009",
+      "item_014"
+    ],
+    "sequence_length": 7
+  },
+  {
+    "user_id": "user_113",
+    "item_sequence": [
+      "item_044",
+      "item_009",
+      "item_045",
+      "item_013",
+      "item_004",
+      "item_026",
+      "item_026",
+      "item_021"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_114",
+    "item_sequence": [
+      "item_029",
+      "item_026",
+      "item_003",
+      "item_013",
+      "item_053",
+      "item_026",
+      "item_024",
+      "item_057",
+      "item_049",
+      "item_037"
+    ],
+    "sequence_length": 10
+  },
+  {
+    "user_id": "user_115",
+    "item_sequence": [
+      "item_054",
+      "item_056"
+    ],
+    "sequence_length": 2
+  },
+  {
+    "user_id": "user_116",
+    "item_sequence": [
+      "item_030",
+      "item_000",
+      "item_022",
+      "item_019",
+      "item_048",
+      "item_024",
+      "item_054",
+      "item_057"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_117",
+    "item_sequence": [
+      "item_034",
+      "item_047",
+      "item_047",
+      "item_034",
+      "item_051",
+      "item_038",
+      "item_057",
+      "item_014"
+    ],
+    "sequence_length": 8
+  },
+  {
+    "user_id": "user_118",
+    "item_sequence": [
+      "item_014",
+      "item_017",
+      "item_027",
+      "item_031",
+      "item_001",
+      "item_024",
+      "item_021",
+      "item_042",
+      "item_043"
+    ],
+    "sequence_length": 9
+  },
+  {
+    "user_id": "user_119",
+    "item_sequence": [
+      "item_046",
+      "item_010",
+      "item_053",
+      "item_029",
+      "item_058",
+      "item_008",
+      "item_039",
+      "item_034"
+    ],
+    "sequence_length": 8
+  }
+]

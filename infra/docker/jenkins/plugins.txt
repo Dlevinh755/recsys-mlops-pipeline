@@ -1,0 +1,9 @@
+# Phase 8 — unpinned (`jenkins-plugin-cli` resolves the latest release
+# compatible with the base `jenkins/jenkins:lts-jdk17` image at build time).
+# Pin exact versions here later if a specific release needs to be locked
+# down for reproducibility.
+git
+workflow-aggregator
+credentials-binding
+configuration-as-code
+timestamper

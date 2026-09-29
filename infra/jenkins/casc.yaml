@@ -1,0 +1,33 @@
+# Phase 8 — Jenkins Configuration as Code. Provisions the one local admin
+# user and the Docker Hub credential the `Jenkinsfile`'s `Build & Push
+# Images` stage references by id — both read from env vars
+# (infra/jenkins/docker-compose.jenkins.yml), never hard-coded here, so this
+# file is safe to commit.
+#
+# What this does NOT do: create the Multibranch Pipeline job itself. That
+# needs a real GitHub repository URL, which this project doesn't have yet
+# (see docs/modules/phase-8-cicd.md) — done once by hand in the Jenkins UI
+# ("New Item" -> "Multibranch Pipeline" -> Git source -> repo URL), same as
+# any Jenkins setup pointed at a specific repo. Nothing in this file needs
+# to change once that repo exists.
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "dockerhub-creds"
+              username: "${DOCKERHUB_USERNAME:-}"
+              password: "${DOCKERHUB_TOKEN:-}"
+              description: "Docker Hub — Access Token, not account password (see ADR 0005)"
