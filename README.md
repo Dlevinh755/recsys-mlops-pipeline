@@ -6,9 +6,9 @@ MVP local cho pipeline gợi ý sản phẩm:
 
 Model ranking chính là GRU4Rec (sequence model), không phải LightGBM như đề
 xuất ban đầu — xem
-[`docs/decisions/0004-gru-sequence-model-thay-lightgbm.md`](../docs/decisions/0004-gru-sequence-model-thay-lightgbm.md).
+[`docs/decisions/0004-gru-sequence-model-thay-lightgbm.md`](docs/decisions/0004-gru-sequence-model-thay-lightgbm.md).
 
-Trạng thái từng phase: xem [`docs/STATUS.md`](../docs/STATUS.md). Tóm tắt
+Trạng thái từng phase: xem [`docs/STATUS.md`](docs/STATUS.md). Tóm tắt
 nhanh: Phase 0–3 (hạ tầng, extract, lakehouse Iceberg, feature store
 Feast/Redis) đã xong; Phase 4 (training GRU4Rec) đang tới.
 
@@ -142,7 +142,7 @@ docker compose --profile jobs run --rm transform-job jobs.transform.build_gold
 (hoặc `make bronze` / `make silver` / `make gold` nếu có GNU Make). Bronze
 append-only, idempotent theo `_extraction_run_id` (rerun không tạo dữ liệu
 trùng); Silver/Gold tính lại toàn bộ mỗi lần chạy. Chi tiết:
-[`docs/modules/phase-2-lakehouse.md`](../docs/modules/phase-2-lakehouse.md).
+[`docs/modules/phase-2-lakehouse.md`](docs/modules/phase-2-lakehouse.md).
 
 Kiểm tra dữ liệu qua DuckDB (không cần cài gì thêm, chạy trong container):
 
@@ -171,7 +171,7 @@ docker compose --profile jobs run --rm materialize-job jobs.materialize.feast_ma
 
 `gold.user_features` lưu chuỗi tối đa 10 item gần nhất/user (input cho
 GRU4Rec ở Phase 4) — không phải đặc trưng dạng bảng phẳng. Chi tiết:
-[`docs/modules/phase-3-feature-store.md`](../docs/modules/phase-3-feature-store.md).
+[`docs/modules/phase-3-feature-store.md`](docs/modules/phase-3-feature-store.md).
 
 Kiểm tra nhanh một feature vector qua Feast SDK:
 
@@ -201,7 +201,7 @@ make evaluate ARGS="--run-id <id>"            # re-evaluate độc lập 1 run �
 
 MLflow UI: http://localhost:5000 (experiment `reco-mlops-gru4rec`). Chi
 tiết kiến trúc, cách tách train/val, và lý do dùng alias MLflow thay stage:
-[`docs/modules/phase-4-training.md`](../docs/modules/phase-4-training.md).
+[`docs/modules/phase-4-training.md`](docs/modules/phase-4-training.md).
 
 ## Chạy Phase 5 serving (FastAPI) + UI (Streamlit)
 
@@ -234,7 +234,7 @@ curl http://localhost:8000/metrics
 UI: http://localhost:8501 — nhập `user_id`, bấm "Đã mua" để xem gợi ý tự
 cập nhật. Chi tiết luồng xử lý, quyết định dùng chuỗi Feast+Redis làm input
 GRU (Hướng B), và lý do hạ version `feast`:
-[`docs/modules/phase-5-serving.md`](../docs/modules/phase-5-serving.md).
+[`docs/modules/phase-5-serving.md`](docs/modules/phase-5-serving.md).
 
 ## Chạy Phase 6 orchestration (Airflow)
 
@@ -253,7 +253,7 @@ thứ tự `dag_ingest → dag_transform → dag_features_candidates →
 {dag_materialize, dag_training}`. Mỗi task chạy trong 1 container job riêng
 (`JobDockerOperator`, Docker-outside-of-Docker) — dừng ở task nào biết ngay
 job nào lỗi. Chi tiết kiến trúc:
-[`docs/modules/phase-6-orchestration.md`](../docs/modules/phase-6-orchestration.md).
+[`docs/modules/phase-6-orchestration.md`](docs/modules/phase-6-orchestration.md).
 
 ```bash
 make airflow-down   # dừng riêng Airflow, không đụng các service khác
@@ -291,7 +291,7 @@ docker compose --profile jobs run --rm monitoring-job jobs.monitoring.model_qual
 ```
 
 Report (HTML + JSON) ghi lên MinIO bucket `monitoring-reports`. Chi tiết:
-[`docs/modules/phase-7-monitoring.md`](../docs/modules/phase-7-monitoring.md).
+[`docs/modules/phase-7-monitoring.md`](docs/modules/phase-7-monitoring.md).
 
 ## Chạy Phase 8 CI/CD (Jenkins)
 
@@ -321,8 +321,8 @@ docker compose --profile jobs run --rm -e MLFLOW_TRACKING_URI=file:///tmp/mlruns
 ```
 
 Chi tiết đầy đủ (Integration Test cô lập, Build & Push, rollback model):
-[`docs/modules/phase-8-cicd.md`](../docs/modules/phase-8-cicd.md),
-[`docs/runbook.md`](../docs/runbook.md).
+[`docs/modules/phase-8-cicd.md`](docs/modules/phase-8-cicd.md),
+[`docs/runbook.md`](docs/runbook.md).
 
 ## Dừng hệ thống
 
