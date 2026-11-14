@@ -19,3 +19,18 @@ def log_iceberg_snapshot(table: Table, table_identifier: str) -> None:
     snapshot = table.current_snapshot()
     mlflow.log_param("iceberg_table", table_identifier)
     mlflow.log_param("iceberg_snapshot_id", snapshot.snapshot_id if snapshot else None)
+
+
+def log_iceberg_snapshots(tables: dict[str, Table]) -> None:
+    """Like `log_iceberg_snapshot`, for a run that reads several tables
+    (AGF reads `gold.item_features` + `gold.user_features`, ADR 0008).
+
+    One param per table — `iceberg_snapshot_id.<table_identifier>` — because
+    MLflow params are immutable and `log_iceberg_snapshot` always writes the
+    same two keys. Must be called inside an active `mlflow.start_run()`.
+    """
+    for table_identifier, table in tables.items():
+        snapshot = table.current_snapshot()
+        mlflow.log_param(
+            f"iceberg_snapshot_id.{table_identifier}", snapshot.snapshot_id if snapshot else None
+        )

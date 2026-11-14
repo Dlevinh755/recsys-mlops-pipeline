@@ -1,10 +1,10 @@
-"""Phase 6 — train GRU4Rec, gate-promote to the `production` alias, then
+"""Phase 6 (model swapped by ADR 0008) — train AGF-GRU4Rec, gate-promote to the `production` alias, then
 refresh item-similarity candidates from the (possibly newly) promoted
-model's embeddings.
+model's precomputed item table `H` (`jobs.candidates.similar_items`).
 
 `promote` needs no run_id passed via XCom: `jobs/training/promote.py`
 defaults `--version` to the latest registered MLflow version, and
-`train_sequence` always registers the version it just trained — so each
+`train_agf` always registers the version it just trained — so each
 task is self-sufficient reading MLflow's own state, no data has to flow
 through Airflow (CLAUDE.md nguyên tắc #1).
 
@@ -21,8 +21,8 @@ from operators.job_docker_operator import JobDockerOperator
 from _defaults import DAG_KWARGS
 
 with DAG(dag_id="dag_training", **DAG_KWARGS):
-    train_sequence = JobDockerOperator(
-        task_id="train_sequence", compose_service="training-job", module="jobs.training.train_sequence"
+    train_agf = JobDockerOperator(
+        task_id="train_agf", compose_service="training-job", module="jobs.training.train_agf"
     )
     promote = JobDockerOperator(
         task_id="promote", compose_service="training-job", module="jobs.training.promote"
@@ -30,4 +30,4 @@ with DAG(dag_id="dag_training", **DAG_KWARGS):
     similar_items = JobDockerOperator(
         task_id="similar_items", compose_service="training-job", module="jobs.candidates.similar_items"
     )
-    train_sequence >> promote >> similar_items
+    train_agf >> promote >> similar_items

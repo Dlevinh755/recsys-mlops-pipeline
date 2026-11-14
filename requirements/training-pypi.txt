@@ -1,0 +1,8 @@
+# Installed from the default PyPI index in a second `pip install` of the
+# training image (requirements/training.txt is installed against PyTorch's
+# CPU-only index, which hosts only torch wheels) — see
+# infra/docker/training/Dockerfile.
+redis==5.2.1
+# AGF text branch (ADR 0008): frozen all-MiniLM-L6-v2, encoded in the training
+# job only — serving never encodes text (it scores with the precomputed H).
+sentence-transformers==3.4.1

@@ -1,0 +1,187 @@
+"""Phase 10 (ADR 0008) — train AGF-GRU4Rec, the main ranking model since
+ADR 0008 (replaces the ID-only GRU4Rec of ADR 0004, which stays runnable by
+hand in `train_sequence.py` as a comparison point).
+
+The method — architecture, training loop, attribute rules, hyperparameters —
+comes unchanged from the experiment repo (`libs/.../ranking/agf/`,
+`agf_method_config.yaml`); this job only wires it to the pipeline:
+
+1. Read `gold.item_features` (full catalog + attributes) and
+   `gold.user_features` (≤ 10-item sequences) — Iceberg is the source of
+   truth (CLAUDE.md #3). Mapping in `agf_inputs.py`.
+2. Fit vocab / `[UNK]` / price buckets again, encode text with frozen
+   MiniLM (`--no-text` skips it — CI smoke test, offline runs).
+3. Train with `trainer.train` (leave-one-out: last item → test, second to
+   last → valid, CE over every item, early stopping on valid NDCG@10).
+4. Log to MLflow (experiment + registry `REGISTERED_MODEL_NAME`):
+   params, per-epoch history, `val_*`/`test_*` metrics, the popularity
+   baseline on the same split (`baseline_pop_*`), the pickled model, the
+   precomputed item table `agf/item_table.npy` that serving scores with, and
+   `item_vocab.json` (`product_id -> index`, same format as before).
+
+CPU by default (`bao-cao-ky-thuat.md` 7.6 — ~1.5k items, ~16k interactions).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import tempfile
+from dataclasses import asdict, replace
+from pathlib import Path
+
+import mlflow
+import mlflow.pytorch
+import numpy as np
+from pyiceberg.table import Table
+
+from jobs.training.agf_inputs import (
+    CatalogItems,
+    build_catalog_items,
+    catalog_meta,
+    interactions_from_sequences,
+)
+from jobs.training.baselines import popularity_metrics
+from reco_mlops_libs.common.env import require_env
+from reco_mlops_libs.iceberg.catalog import get_catalog
+from reco_mlops_libs.iceberg.schema_contracts import gold_item_features, gold_user_features
+from reco_mlops_libs.mlflow_utils.logging_helpers import log_iceberg_snapshots
+from reco_mlops_libs.ranking.agf import trainer as T
+from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME
+
+EXPERIMENT_NAME = REGISTERED_MODEL_NAME
+CONFIG_PATH = Path(__file__).with_name("agf_method_config.yaml")
+ITEM_COLUMNS = ("product_id", "title", "category", "category_path", "brand", "price")
+USER_COLUMNS = ("user_id", "item_sequence", "event_time_sequence")
+MAX_TABLE_DIFF = 1e-5  # experiment/docs/03: H precomputed must match direct scores
+
+
+def _prefixed(prefix: str, metrics: dict[str, float]) -> dict[str, float]:
+    """`{"ndcg@10": x}` → `{"<prefix>_ndcg_at_10": x}` (MLflow-safe names,
+    same `val_ndcg_at_10` key promote.py / monitoring already read)."""
+    return {f"{prefix}_{key.replace('@', '_at_')}": value for key, value in metrics.items()}
+
+
+def to_item_inputs(items: CatalogItems) -> T.ItemInputs:
+    return T.ItemInputs(items.tokens, items.categories, items.store, items.price, items.text,
+                        items.train_counts, items.vocab, items.price_edges)
+
+
+def run_training(
+    item_rows: list[dict],
+    user_rows: list[dict],
+    cfg: T.MethodConfig,
+    *,
+    seed: int = 2023,
+    register: bool = True,
+    device: str = "cpu",
+    text: np.ndarray | None = None,
+    lineage_tables: dict[str, Table] | None = None,
+) -> dict:
+    """Core routine, no Iceberg/MLflow-URI setup of its own (same split as
+    `train_sequence.run_training`) so `tests/model/test_train_agf_smoke.py`
+    can drive it with fixtures under a `file://` tracking URI."""
+    items_list, meta = catalog_meta(item_rows)
+    inter = interactions_from_sequences(user_rows)
+    catalog = build_catalog_items(inter, meta, items_list, cfg.use_text, text=text)
+    items = to_item_inputs(catalog)
+
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    with mlflow.start_run() as run:
+        mlflow.set_tag("model_type", "agf-gru4rec")
+        mlflow.set_tag("adr", "0008")
+        mlflow.log_params({
+            **{f"cfg_{k}": v for k, v in asdict(cfg).items()},
+            "seed": seed,
+            "n_items": len(items_list),
+            "n_users_rows": len(user_rows),
+            "n_interactions": len(inter),
+            "items_with_train_count": int((catalog.train_counts[1:] > 0).sum()),
+            "vocab_categories": len(catalog.vocab["categories"]),
+            "vocab_store": len(catalog.vocab["store"]),
+            "vocab_price_bucket": len(catalog.vocab["price_bucket"]),
+        })
+        if lineage_tables:
+            log_iceberg_snapshots(lineage_tables)
+
+        result = T.train(cfg, inter, items, seed, device=device, log=lambda m: print(json.dumps({"log": m})))
+        for row in result["history"]:
+            mlflow.log_metric("train_loss", row["loss"], step=row["epoch"])
+            mlflow.log_metric("val_ndcg_at_10_epoch", row["valid_ndcg@10"], step=row["epoch"])
+
+        samples = result["samples"]
+        baseline = {
+            **_prefixed("baseline_pop_val", popularity_metrics(samples["valid"].target, catalog.train_counts)),
+            **_prefixed("baseline_pop_test", popularity_metrics(samples["test"].target, catalog.train_counts)),
+        }
+        metrics = {
+            **_prefixed("val", result["valid"]),
+            **_prefixed("test", result["test"]),
+            **baseline,
+            "best_epoch": float(result["best_epoch"]),
+            "epochs_run": float(result["epochs_run"]),
+            "train_seconds": float(result["train_s"]),
+            "train_samples": float(len(samples["train"])),
+            "val_samples": float(len(samples["valid"])),
+        }
+
+        with tempfile.TemporaryDirectory(prefix="agf-export-") as tmp:
+            exported = T.export(result, cfg, items, Path(tmp), seed)
+            if exported["item_table_max_abs_diff"] >= MAX_TABLE_DIFF:
+                raise RuntimeError(
+                    f"item_table.npy disagrees with direct scores: {exported['item_table_max_abs_diff']}")
+            mlflow.log_artifacts(tmp, artifact_path="agf")
+        metrics["item_table_max_abs_diff"] = float(exported["item_table_max_abs_diff"])
+        metrics["n_params"] = float(exported["n_params"])
+        mlflow.log_metrics(metrics)
+        mlflow.log_dict(catalog.vocab_index, "item_vocab.json")
+
+        model = result["model"].cpu().eval()
+        model_info = mlflow.pytorch.log_model(model, name="model")
+        out = {"run_id": run.info.run_id, **metrics}
+        if register:
+            registered = mlflow.register_model(model_info.model_uri, REGISTERED_MODEL_NAME)
+            out["registered_model"] = REGISTERED_MODEL_NAME
+            out["registered_version"] = registered.version
+        return out
+
+
+def load_gold_rows() -> tuple[list[dict], list[dict], dict[str, Table]]:
+    catalog = get_catalog()
+    item_table = catalog.load_table(gold_item_features.TABLE_IDENTIFIER)
+    user_table = catalog.load_table(gold_user_features.TABLE_IDENTIFIER)
+    item_rows = item_table.scan(selected_fields=ITEM_COLUMNS).to_arrow().to_pylist()
+    user_rows = user_table.scan(selected_fields=USER_COLUMNS).to_arrow().to_pylist()
+    lineage = {gold_item_features.TABLE_IDENTIFIER: item_table,
+               gold_user_features.TABLE_IDENTIFIER: user_table}
+    return item_rows, user_rows, lineage
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train AGF-GRU4Rec (ADR 0008) and register it in MLflow.")
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+    parser.add_argument("--seed", type=int, default=2023)
+    parser.add_argument("--no-text", action="store_true", help="skip the MiniLM text branch (offline)")
+    parser.add_argument("--epochs", type=int, default=None, help="override max epochs (quick runs)")
+    parser.add_argument("--device", default="cpu")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    cfg = T.MethodConfig.from_yaml(args.config)
+    if args.no_text:
+        cfg = replace(cfg, use_text=False)
+    if args.epochs is not None:
+        cfg = replace(cfg, epochs=args.epochs)
+
+    mlflow.set_tracking_uri(require_env("MLFLOW_TRACKING_URI"))
+    item_rows, user_rows, lineage = load_gold_rows()
+    result = run_training(item_rows, user_rows, cfg, seed=args.seed, device=args.device,
+                          lineage_tables=lineage)
+    print(json.dumps(result))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

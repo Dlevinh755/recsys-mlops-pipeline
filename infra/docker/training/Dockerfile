@@ -25,7 +25,11 @@ COPY requirements/dev.txt /tmp/dev.txt
 # docs/modules/phase-8-cicd.md and PHONG-VAN-QA-BAO-VE.md mục 4. `dev.txt`'s
 # own `-e ../libs` line (host-relative) is stripped first — `-e /app/libs`
 # right before it already installs the same package with the right path.
-RUN pip install --no-cache-dir -e /app/libs redis==5.2.1 \
+# requirements/training-pypi.txt: packages from the default PyPI index —
+# redis (similar_items) and sentence-transformers (AGF text branch, ADR 0008;
+# torch is already satisfied by the CPU wheel above, pip does not replace it).
+COPY requirements/training-pypi.txt /tmp/training-pypi.txt
+RUN pip install --no-cache-dir -e /app/libs -r /tmp/training-pypi.txt \
     && grep -v '^-e ' /tmp/dev.txt > /tmp/dev-tools.txt \
     && pip install --no-cache-dir -r /tmp/dev-tools.txt
 
@@ -46,8 +50,8 @@ RUN useradd --create-home --uid 10001 appuser \
 
 USER appuser
 
-# build_sequence_dataset / train_sequence / evaluate / promote all ship in
+# train_agf (main, ADR 0008) / train_sequence (legacy GRU4Rec) / evaluate / promote all ship in
 # this one image — override the module at `docker compose run` time, e.g.
 # `docker compose run --rm training-job jobs.training.promote`.
 ENTRYPOINT ["python", "-m"]
-CMD ["jobs.training.train_sequence"]
+CMD ["jobs.training.train_agf"]

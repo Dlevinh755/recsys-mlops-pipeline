@@ -1,5 +1,13 @@
-"""Phase 4 — train the GRU4Rec sequence model (ADR 0004: this is the main
-ranking model, not an optional extension). Architecture per
+"""Phase 4 — train the ID-only GRU4Rec sequence model.
+
+**Legacy since ADR 0008**: the main model is now AGF-GRU4Rec
+(`train_agf.py`, registry `reco-mlops-agf`). This job stays runnable by hand
+(`make train-gru4rec`) as a comparison point on the pipeline's own data and
+keeps writing to its own registry `reco-mlops-gru4rec` below — serving,
+promote (default) and the DAG no longer read it.
+
+Original ADR 0004 note: this was the main
+ranking model, not an optional extension. Architecture per
 `docs/bao-cao-ky-thuat.md` mục 7.6: Embedding -> GRU (1 layer) -> Linear +
 sampled softmax, plain PyTorch, no training framework.
 

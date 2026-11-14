@@ -3,6 +3,11 @@
 pattern), never by an arbitrary hard-coded quality floor. The very first
 version ever trained for a model name is always promoted (there is no
 champion yet to compare against).
+
+Default model name is the shared `REGISTERED_MODEL_NAME` (AGF-GRU4Rec,
+ADR 0008). The legacy ID-only GRU4Rec can still be promoted by hand with
+`--model-name reco-mlops-gru4rec` — the two registries are never compared
+against each other (different split/metric protocol, see ADR 0008).
 """
 
 from __future__ import annotations
@@ -12,12 +17,12 @@ import json
 
 from mlflow import MlflowClient
 
-from jobs.training.train_sequence import REGISTERED_MODEL_NAME
 from reco_mlops_libs.mlflow_utils.registry_client import (
     get_client,
     get_production_version,
     set_production_version,
 )
+from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME
 
 METRIC_NAME = "val_ndcg_at_10"
 

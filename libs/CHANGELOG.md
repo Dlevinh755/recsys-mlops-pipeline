@@ -12,6 +12,8 @@
   `training` (đủ cả 3) và `serving` (chỉ `agf_core`, cần torch) import.
 - Thêm hằng `REGISTERED_MODEL_NAME = "reco-mlops-agf"` vào `ranking/base.py`
   — tên registry dùng chung cho training/promote/serving/candidates/monitoring.
+- Thêm `mlflow_utils.logging_helpers.log_iceberg_snapshots()` — lineage cho run
+  đọc nhiều bảng (mỗi bảng 1 param `iceberg_snapshot_id.<bảng>`).
 - Thêm cột `category_path` (string, nullable — cây danh mục nối bằng `" > "`)
   vào schema contract `bronze_products`, `silver_products`,
   `gold_item_features`. **Cần cold start** (xem `docs/modules/phase-10-agf.md`).

@@ -1,0 +1,20 @@
+# Cấu hình AGF đã chốt cho pipeline (ADR 0008) — chép từ
+# experiment/configs/handoff/method_config.yaml (commit 58d50db), chọn theo
+# validation ở experiment/results/model_selection.md. Không tune lại trên dữ
+# liệu Cell Phones của pipeline (kết quả ở đây không dùng để chọn phương pháp).
+model: AGF-GRU4Rec
+method:
+  backbone: gru4rec
+  d: 64
+  max_len: 10
+  dropout: 0.2
+  fusion: gate
+  output_fusion: true
+  use_popularity: true
+  use_text: true
+  lr: 0.001
+  weight_decay: 0.0
+  batch_size: 2048
+  epochs: 200
+  patience: 10
+  gru_layers: 1

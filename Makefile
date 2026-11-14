@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help env up down clean ps logs validate test smoke extract install-dev bronze silver gold test-integration user-features train-dataset train evaluate promote similar-items airflow-up airflow-down
+.PHONY: help env up down clean ps logs validate test smoke extract install-dev bronze silver gold test-integration user-features train-dataset train train-gru4rec evaluate promote similar-items airflow-up airflow-down
 
 help:
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -57,7 +57,10 @@ user-features: ## Run the Phase 3 build_user_features job (Silver -> Gold user s
 train-dataset: ## Run the Phase 4 build_sequence_dataset job (prints train/val/vocab stats)
 	docker compose --profile jobs run --rm training-job jobs.training.build_sequence_dataset
 
-train: ## Run the Phase 4 train_sequence job (GRU4Rec, logs to MLflow)
+train: ## Train AGF-GRU4Rec, the main model (ADR 0008) — e.g. make train ARGS="--no-text"
+	docker compose --profile jobs run --rm training-job jobs.training.train_agf $(ARGS)
+
+train-gru4rec: ## Legacy ID-only GRU4Rec (ADR 0004), registry reco-mlops-gru4rec — comparison only
 	docker compose --profile jobs run --rm training-job jobs.training.train_sequence $(ARGS)
 
 evaluate: ## Re-evaluate a trained run: make evaluate ARGS="--run-id <id>"
@@ -66,7 +69,7 @@ evaluate: ## Re-evaluate a trained run: make evaluate ARGS="--run-id <id>"
 promote: ## Run the Phase 4 promote job (production alias gate)
 	docker compose --profile jobs run --rm training-job jobs.training.promote $(ARGS)
 
-similar-items: ## Run the Phase 5 similar_items job (GRU embeddings -> Redis)
+similar-items: ## Run the similar_items job (AGF item table H -> Redis)
 	docker compose --profile jobs run --rm training-job jobs.candidates.similar_items $(ARGS)
 
 airflow-up: env ## Start Phase 6 Airflow (webserver+scheduler+db) — separate from `make up`
