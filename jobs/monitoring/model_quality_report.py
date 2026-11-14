@@ -26,15 +26,15 @@ import json
 from reco_mlops_libs.iceberg.catalog import get_catalog
 from reco_mlops_libs.iceberg.schema_contracts import gold_item_features
 from reco_mlops_libs.mlflow_utils.registry_client import get_client, get_production_version
+from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME  # ADR 0008: reco-mlops-agf
 
 from jobs.monitoring.report_sink import save_report
 from jobs.transform.iceberg_writer import get_or_create_table
 
-# Must match jobs/training/train_sequence.py::REGISTERED_MODEL_NAME /
-# jobs/training/promote.py::METRIC_NAME — monitoring-job cannot import
+# Must match jobs/training/promote.py::METRIC_NAME (the model name itself is
+# shared through libs since ADR 0008) — monitoring-job cannot import
 # jobs.training directly (CLAUDE.md nguyên tắc #2: no cross-image
 # dependency between job packages).
-REGISTERED_MODEL_NAME = "reco-mlops-gru4rec"
 METRIC_NAME = "val_ndcg_at_10"
 
 

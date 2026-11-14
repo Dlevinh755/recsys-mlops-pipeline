@@ -18,7 +18,6 @@ where `tests/model/test_training_smoke.py`'s sibling logic already is.
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import time
@@ -26,9 +25,9 @@ import unittest
 import urllib.request
 
 from reco_mlops_libs.mlflow_utils.registry_client import get_client, set_production_version
+from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME  # ADR 0008: reco-mlops-agf
 
 SERVING_BASE_URL = os.environ.get("SERVING_BASE_URL", "http://serving:8000")
-REGISTERED_MODEL_NAME = "reco-mlops-gru4rec"
 POLL_TIMEOUT_SECONDS = 30
 POLL_CHECK_INTERVAL_SECONDS = 2
 
@@ -51,16 +50,18 @@ def _wait_until_serving_reports_version(version: str) -> str | None:
 
 def _train_one_tiny_version(mlflow) -> str:
     """Reuses the exact same smoke-test fixture/training path as
-    `tests/model/test_training_smoke.py`, but with `register=True` so it
-    becomes a real registry version `set_production_version` can point at."""
-    from jobs.training.train_sequence import run_training
-    from tests.model.test_training_smoke import load_sample_dataset
+    `tests/model/test_train_agf_smoke.py` (AGF-GRU4Rec, ADR 0008), but with
+    `register=True` so it becomes a real registry version
+    `set_production_version` can point at."""
+    from dataclasses import replace
 
-    dataset = load_sample_dataset()
-    args = argparse.Namespace(
-        epochs=1, batch_size=32, lr=1e-3, embedding_dim=8, hidden_size=16, num_negatives=10
-    )
-    result = run_training(dataset, args, user_features_table=None, register=True)
+    from jobs.training.train_agf import CONFIG_PATH, run_training
+    from reco_mlops_libs.ranking.agf.trainer import MethodConfig
+    from tests.model.test_train_agf_smoke import load_sample_rows
+
+    cfg = replace(MethodConfig.from_yaml(CONFIG_PATH), use_text=False, epochs=1, batch_size=64)
+    item_rows, user_rows = load_sample_rows()
+    result = run_training(item_rows, user_rows, cfg, seed=2023, register=True)
     return result["registered_version"]
 
 
