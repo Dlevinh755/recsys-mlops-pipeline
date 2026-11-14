@@ -4,6 +4,8 @@ MVP local cho pipeline gợi ý sản phẩm:
 
 `source-db -> Iceberg/MinIO -> Feast/Redis -> AGF-GRU4Rec/MLflow -> FastAPI -> monitoring`
 
+![Kiến trúc MLOPS4REC: Data & Lakehouse → Training & Registry → Serving & Deployment → Monitoring & Feedback](docs/arc.png)
+
 Model ranking chính là **AGF-GRU4Rec** (sequence model trộn item ID với thuộc
 tính sản phẩm, chọn từ repo thực nghiệm `../experiment/`) — xem
 [`docs/decisions/0008-agf-gru4rec-thay-gru4rec.md`](docs/decisions/0008-agf-gru4rec-thay-gru4rec.md).
