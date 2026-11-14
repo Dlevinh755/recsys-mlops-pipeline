@@ -434,15 +434,15 @@ data dictionary, model card).
 | Hạn chế hiện tại | Hướng phát triển |
 |---|---|
 | Feedback loop mới ở mức MVP — `/interact` (mục 8.1) mới ghi lại hành động "mua", chưa ghi lại log request/response đầy đủ của serving (impression, click không dẫn tới mua) để tính online metric thật | Thêm job đọc log serving, nạp vào bảng Bronze riêng (`bronze_serving_requests`); đã có sẵn placeholder trong thiết kế thư mục |
-| Chưa có kiểm tra lệch train/serve (feature offline tính trong Gold layer khác đường tính với feature online tra cứu từ Redis) | Thêm `tests/data_quality/test_train_serve_skew.py` so sánh giá trị feature giữa hai đường tại cùng thời điểm |
+| ~~Chưa có kiểm tra lệch train/serve~~ — **đã giải quyết ở Phase 8**: `tests/data_quality/test_train_serve_skew.py` so feature Gold với Feast/Redis thật | Mở rộng sang kiểm tra định kỳ trong DAG thay vì chỉ trong CI |
 | Compute engine DuckDB giới hạn khả năng mở rộng khi dữ liệu lớn hơn nhiều so với MVP | Do đã tách Iceberg làm source of truth độc lập với engine, việc chuyển sang Spark chỉ cần thay job transform, không ảnh hưởng các tầng khác |
 | Chưa có cảnh báo tự động (alerting) khi metric vận hành vượt ngưỡng | Bổ sung Alertmanager trên nền Prometheus đã có sẵn |
 | Chưa dùng dbt cho quản lý transform SQL | Cân nhắc khi adapter dbt-duckdb hỗ trợ Iceberg ổn định, hoặc khi chuyển hẳn sang dbt-spark |
 | Chưa có A/B testing / shadow deployment cho model | Nằm ngoài phạm vi đề tài hiện tại, ghi nhận là hướng mở rộng riêng |
 | Chưa đóng vòng lặp drift → retraining tự động (Evidently phát hiện drift nhưng không tự kích hoạt `dag_training`) | Có thể nối bằng Airflow Variable: report vượt ngưỡng → set flag → `dag_training` kiểm tra flag trước khi chạy sớm hơn lịch |
-| Chưa có quy trình rollback model rõ ràng nếu version mới gây lỗi ở serving | MLflow registry đã giữ lịch sử version; cần ghi quy trình rollback thủ công vào `docs/runbook.md` |
-| Chưa tối ưu triển khai Kubernetes/production-scale | Đã có placeholder `infra/k8s/helm/`, không nằm trong phạm vi chính của đề tài |
-| Ranking model hiện tại (LightGBM) không mô hình hoá thứ tự hành vi gần đây của người dùng | Đã có hướng mở rộng cụ thể: mini-GRU4Rec (mục 7.6), triển khai ở Phase 9 sau khi MVP1 hoàn chỉnh, dùng chung interface model đã chuẩn bị sẵn (mục 7.5) |
+| ~~Chưa có quy trình rollback model~~ — **đã giải quyết ở Phase 8**: rollback thủ công bằng đổi alias `production` trong MLflow, ghi ở `docs/runbook.md` và đã kiểm chứng bằng `serving/tests/test_model_reload.py` | Tự động rollback khi metric serving xấu đi (cần Alertmanager) |
+| Chưa tối ưu triển khai Kubernetes/production-scale | Không nằm trong phạm vi chính của đề tài; hiện **chưa có** thư mục `infra/k8s/` (chỉ là hướng mở rộng, xem `cau-truc-project.md`) |
+| ~~Ranking model LightGBM không mô hình hoá thứ tự hành vi~~ — **đã giải quyết**: model chính là GRU4Rec (ADR 0004), Phase 9 gộp vào Phase 4; các mục 3, 7.x còn nhắc LightGBM là thiết kế gốc, tin ADR 0004 và `phase-4-training.md` | Chưa có baseline (popularity/item-KNN) để chứng minh GRU4Rec vượt trội; metric hiện thấp (NDCG@10 ≈ 0.008) |
 | Re-rank tức thời (mục 8.1) mới dựa trên `similar_items` đơn giản, chưa tính đến diversity/business rule | Có thể mở rộng `recency_boost.py` để trộn nhiều nguồn candidate (similar_items, popular_items) có trọng số, thay vì chỉ đẩy lên đầu |
 
 ---

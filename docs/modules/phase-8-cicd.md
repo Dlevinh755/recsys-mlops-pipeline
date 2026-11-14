@@ -141,15 +141,17 @@ implement, không đổi quyết định kiến trúc nào.
 
 ## 5. Việc còn để lại
 
-- **Chưa có Git remote thật** (project chưa `git init` tính tới trước Phase
-  8 — nay đã có, xem lịch sử commit) và chưa có repo GitHub/Docker Hub
-  token thật của người dùng → `pollSCM` chưa có gì để poll, stage
-  `Build & Push Images` sẽ fail rõ ràng (không chặn pipeline nhờ
-  `catchError`) cho tới khi set `DOCKERHUB_TOKEN` thật trong `.env`. Việc
-  còn lại thuần thao tác tay, không phải code: (1) tạo repo GitHub, push
-  code; (2) tạo Docker Hub Access Token, set `DOCKERHUB_USERNAME`/
-  `DOCKERHUB_TOKEN`; (3) `docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build`,
-  tạo 1 job Multibranch Pipeline trỏ vào repo đó qua Jenkins UI.
+- **Git remote đã có** (cập nhật 2026-10-11): `origin` =
+  `github.com/Dlevinh755/recsys-mlops-pipeline`, nhánh `main` đã push. Chưa
+  có Docker Hub token thật và chưa có job Jenkins → stage `Build & Push
+  Images` sẽ fail rõ ràng (không chặn pipeline nhờ `catchError`) cho tới khi
+  set `DOCKERHUB_TOKEN` thật trong `.env`. Việc còn lại thuần thao tác tay,
+  không phải code: (1) tạo Docker Hub Access Token, set
+  `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; (2) `docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build`,
+  tạo 1 job Multibranch Pipeline trỏ vào repo `origin` qua Jenkins UI.
+- **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên
+  image `:latest` (xem `phase-6-orchestration.md`), nên image Jenkins push
+  theo SHA chưa được DAG tiêu thụ.
 - Tag `git rev-parse --short HEAD` cho image giờ đã khả thi (có git) nhưng
   vẫn cần CI thật chạy ít nhất 1 lần để xác nhận `GIT_SHA` trong
   `Jenkinsfile` (`sh 'git rev-parse --short HEAD'`) hoạt động đúng trong

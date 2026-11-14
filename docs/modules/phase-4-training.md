@@ -177,8 +177,9 @@ thật (`test.parquet`/`incoming/` dành cho việc này ở Phase 4/7 sau, xem 
 - **`amazone_data/data_split/test.parquet`/`incoming/`** vẫn chưa nạp vào
   pipeline (quyết định giữ nguyên từ Phase 1) — dành cho demo drift/retrain
   ở Phase 4 mở rộng hoặc Phase 7, không phải việc của Phase 4 cơ bản.
-- **`jobs/candidates/similar_items.py`, `popular_items.py`** — candidate
-  generation cho serving, chưa làm (xem mục 3).
+- ~~**`jobs/candidates/similar_items.py`, `popular_items.py`**~~ — **đã giải
+  quyết ở Phase 5**: `similar_items.py` đã có; `popular_items` thay bằng
+  `serving/app/core/fallback.py` (xem `phase-5-serving.md` mục 3).
 - Số liệu metric còn thấp (mục 4) — có thể cải thiện bằng nhiều dữ liệu
   hơn, tune hyperparameter, hoặc tăng `--num-negatives`/`--epochs`; không
   chặn Phase 5 vì Definition of Done không đặt ngưỡng chất lượng tuyệt đối,

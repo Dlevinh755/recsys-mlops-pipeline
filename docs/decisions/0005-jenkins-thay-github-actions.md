@@ -112,6 +112,15 @@ hiện/luyện tập cho khóa luận) thay vì phụ thuộc GitHub Actions —
 Sẽ bổ sung đường dẫn file code cụ thể (`Jenkinsfile`, `infra/jenkins/`) khi
 Phase 8 thực sự triển khai — cập nhật `docs/modules/phase-8-*.md` lúc đó.
 
+## Cập nhật 2026-10-11
+
+Phase 8 đã triển khai: `Jenkinsfile`, `infra/jenkins/`, `infra/docker/jenkins/`,
+`docker-compose.ci.yml` — danh sách file và kết quả ở
+[phase-8-cicd.md](../modules/phase-8-cicd.md). Các câu "Phase 8 chưa bắt đầu
+code" / "Sẽ bổ sung đường dẫn" ở trên là nội dung lịch sử lúc viết ADR.
+Còn lại chưa làm: chạy pipeline thật qua Jenkins với Docker Hub token (repo
+GitHub `origin` đã có).
+
 ## Cập nhật 2026-09-14
 
 Bổ sung các chi tiết thiết kế còn thiếu ở bản gốc (trước Phase 8, vẫn ở giai

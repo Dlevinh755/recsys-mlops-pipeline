@@ -98,10 +98,11 @@ nguyên tắc #1: DAG không xử lý logic, chỉ gọi lại job).
 
 ## 5. Việc còn để lại cho phase sau
 
-- Gắn tag `git rev-parse --short HEAD` cho mọi image (kể cả các phase
-  trước) — cần `git init` trước, tự nhiên hợp với Phase 8 (CI/CD).
-- `jobs/maintenance/compact_iceberg.py` + `dag_maintenance.py` — viết cùng
-  lúc ở Phase 7 (đã dời từ Phase 2).
+- Gắn tag `git rev-parse --short HEAD` cho mọi image — Phase 8 đã có git và
+  Jenkins push image theo SHA, **nhưng `JobDockerOperator` vẫn dùng `:latest`**
+  (`job_docker_operator.py`); việc còn lại là cho operator đọc `IMAGE_TAG`.
+- ~~`jobs/maintenance/compact_iceberg.py` + `dag_maintenance.py`~~ — **đã
+  làm ở Phase 7**.
 - Chưa có scheduling tự động (cron) hay cross-DAG trigger — DoD hiện tại
   chỉ yêu cầu trigger thủ công đúng thứ tự; đặt `schedule=` cụ thể là việc
   dễ, để lại vì chưa có yêu cầu tần suất chạy thật.

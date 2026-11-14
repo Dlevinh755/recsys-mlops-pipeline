@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-09-30 (Phase 8)
+Cập nhật lần cuối: 2026-10-11 (đồng bộ tài liệu sau Phase 8)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -41,6 +41,27 @@ GitHub + Docker Hub token thật, tạo job Multibranch Pipeline trỏ vào —
 `Build & Push Images` sẽ fail rõ (không chặn pipeline, `catchError`) cho
 tới lúc đó — xem `phase-8-cicd.md` mục 5.
 
+## Việc còn lại để hoàn thiện project (rà soát 2026-10-11)
+
+Không còn phase bắt buộc; các điểm dưới đây là hạn chế đã xác nhận qua rà
+soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
+
+1. **Airflow vẫn chạy image tag `latest`** — `airflow/plugins/operators/
+   job_docker_operator.py` dựng tên image `<project>-<service>:latest`, chưa
+   theo nguyên tắc #8 (tag git SHA) dù project đã có git. Jenkins đã push
+   image tag SHA, nhưng DAG không dùng chúng.
+2. **CI/CD chưa chạy thật qua Jenkins** — repo đã có remote `origin`
+   (GitHub), còn thiếu Docker Hub token, dựng Jenkins và tạo job Multibranch
+   Pipeline; chưa kiểm chứng `GIT_SHA` trong ngữ cảnh Jenkins checkout.
+3. **Chất lượng model thấp** (NDCG@10 ≈ 0.008) và chưa có baseline so sánh
+   (popularity/item-KNN); `test.parquet`/`incoming/` chưa nạp.
+4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
+   Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
+   "mua" (chưa có impression/click để tính online metric).
+5. **Chưa có Alertmanager**, và `compact_iceberg.py` chưa `expire_snapshots()`.
+6. `fastapi`/`uvicorn`/`redis` trong `requirements/serving.txt` chưa ghim
+   version.
+
 ## Lịch sử các phase trước Phase 8
 
 ## Ghi chú kiểm thử thủ công Phase 0→3 (2026-09-27)
@@ -71,7 +92,7 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
 - [0004](decisions/0004-gru-sequence-model-thay-lightgbm.md) — GRU (sequence
   model) thay LightGBM làm model chính; Phase 9 gộp vào Phase 4
 - [0005](decisions/0005-jenkins-thay-github-actions.md) — Jenkins thay
-  GitHub Actions cho CI/CD (Phase 8, chưa code)
+  GitHub Actions cho CI/CD (Phase 8, đã áp dụng)
 - [0006](decisions/0006-dlt-native-incremental-extract.md) — dlt sở hữu
   cursor + state của extract (Phase 1), thay watermark tự viết trong
   Postgres — sửa bug mất dữ liệu phát hiện khi test thủ công 2026-09-27

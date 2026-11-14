@@ -179,13 +179,11 @@ Số liệu phụ (tham khảo): `similar_items` job xử lý 1565/1565 item;
 
 - **Prometheus/Grafana hạ tầng thật** (scrape config, dashboard JSON) —
   Phase 7, `serving` đã có `/metrics` sẵn sàng để scrape.
-- **`tests/load/locustfile.py`** — không thuộc Phase 5 (không nằm trong CI,
-  dùng để tạo traffic demo trước khi trình bày — làm khi cần).
-- **`tests/data_quality/test_train_serve_skew.py`** (so feature offline
-  Gold vs online Feast) — ghi nhận trong báo cáo kỹ thuật mục 11 là hướng
-  phát triển, chưa bắt buộc cho MVP.
-- **Đăng ký alerting** khi metric vượt ngưỡng — chưa làm (Alertmanager,
-  Phase 7 mở rộng).
+- ~~**`tests/load/locustfile.py`**~~ — **đã có** (dùng ở Phase 7 để tạo
+  traffic cho dashboard).
+- ~~**`tests/data_quality/test_train_serve_skew.py`**~~ — **đã làm ở Phase
+  8** (Gold vs Feast/Redis thật).
+- **Đăng ký alerting** khi metric vượt ngưỡng — vẫn chưa làm (Alertmanager).
 - Model chất lượng còn thấp (kế thừa từ Phase 4, xem
   `phase-4-training.md` mục 4) — không chặn Phase 5 vì DoD chỉ yêu cầu quy
   trình đúng, không đặt ngưỡng chất lượng.

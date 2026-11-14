@@ -122,8 +122,8 @@ nguyên tắc kiến trúc.
 - `compact_iceberg.py` chưa gọi `expire_snapshots()` — file cũ (đã bị thay
   bởi lần compact) vẫn chiếm chỗ trên MinIO cho tới khi có chính sách
   retention rõ ràng (giữ bao nhiêu snapshot/bao lâu).
-- Tag image vẫn `latest` (gap có sẵn từ Phase 0, cần git — xem
-  `phase-6-orchestration.md`).
+- Tag image trong Airflow vẫn `latest` — git đã có từ Phase 8 nhưng
+  `JobDockerOperator` chưa đọc `IMAGE_TAG` (xem `phase-6-orchestration.md`).
 
 ## 6. Danh sách file đã triển khai
 
