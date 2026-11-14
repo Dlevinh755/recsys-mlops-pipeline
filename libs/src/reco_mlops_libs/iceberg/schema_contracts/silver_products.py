@@ -29,6 +29,7 @@ ICEBERG_SCHEMA = Schema(
     NestedField(8, "created_at", TimestamptzType(), required=True),
     NestedField(9, "updated_at", TimestamptzType(), required=True),
     NestedField(10, "image_url", StringType(), required=False),
+    NestedField(11, "category_path", StringType(), required=False),  # ADR 0008
 )
 
 PANDERA_SCHEMA = DataFrameSchema(
@@ -43,6 +44,7 @@ PANDERA_SCHEMA = DataFrameSchema(
         "created_at": Column("datetime64[us, UTC]", nullable=False),
         "updated_at": Column("datetime64[us, UTC]", nullable=False),
         "image_url": Column(str, nullable=True),
+        "category_path": Column(str, nullable=True),
     },
     strict=True,
     coerce=True,

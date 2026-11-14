@@ -11,6 +11,8 @@ CREATE TABLE products (
     product_id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     category TEXT NOT NULL,
+    -- Cây danh mục gốc của Amazon, nối bằng ' > ' (ADR 0008 — thuộc tính của AGF).
+    category_path TEXT,
     brand TEXT,
     price NUMERIC(12, 2) CHECK (price IS NULL OR price >= 0),
     description TEXT,

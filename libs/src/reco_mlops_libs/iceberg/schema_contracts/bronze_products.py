@@ -34,6 +34,7 @@ ICEBERG_SCHEMA = Schema(
     NestedField(10, "_extraction_run_id", StringType(), required=True),
     NestedField(11, "_ingested_at", TimestamptzType(), required=True),
     NestedField(12, "image_url", StringType(), required=False),
+    NestedField(13, "category_path", StringType(), required=False),  # ADR 0008
 )
 
 PANDERA_SCHEMA = DataFrameSchema(
@@ -50,6 +51,7 @@ PANDERA_SCHEMA = DataFrameSchema(
         "_extraction_run_id": Column(str, nullable=False),
         "_ingested_at": Column("datetime64[us, UTC]", nullable=False),
         "image_url": Column(str, nullable=True),
+        "category_path": Column(str, nullable=True),
     },
     strict=True,
     coerce=True,

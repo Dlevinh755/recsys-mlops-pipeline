@@ -50,7 +50,11 @@ DEFAULT_DSN = "postgresql://reco_app:local_source_password_change_me@localhost:5
 # scripts/ -> recommendation-mlops/ -> MLOPS4REC/ -> amazone_data/data_split
 DEFAULT_DATA_DIR = Path(__file__).resolve().parents[2] / "amazone_data" / "data_split"
 
-ProductRow = tuple[str, str, str, str | None, float, None, str]
+ProductRow = tuple[str, str, str, str | None, str | None, float, None, str]
+
+# Separator for `products.category_path` (ADR 0008) — must match
+# `jobs/training/train_agf.py::CATEGORY_PATH_SEPARATOR`.
+CATEGORY_PATH_SEPARATOR = " > "
 InteractionRow = tuple[str, str, str, float, datetime]
 
 
@@ -62,12 +66,25 @@ def _clean_category(main_category: object, categories: object) -> str:
     return "unknown"
 
 
+def _category_path(categories: object) -> str | None:
+    """Full Amazon category tree (`meta.parquet` `categories`, a list/array of
+    str) joined with `CATEGORY_PATH_SEPARATOR`; `None` when empty. Kept as one
+    string (not a Postgres array) so it flows through dlt/Parquet/Iceberg as a
+    plain string column — `jobs/training/train_agf.py` splits it back (ADR 0008)."""
+    if categories is None:
+        return None
+    levels = [" ".join(str(c).split()) for c in list(categories)]
+    levels = [c for c in levels if c]
+    return CATEGORY_PATH_SEPARATOR.join(levels) if levels else None
+
+
 def build_product_rows(meta: pd.DataFrame) -> list[ProductRow]:
     return [
         (
             str(r.parent_asin),
             str(r.title),
             _clean_category(r.main_category, r.categories),
+            _category_path(r.categories),
             None if pd.isna(r.store) else str(r.store),
             round(float(r.price), 2),
             None,  # description — not present in meta.parquet
@@ -97,8 +114,9 @@ def load_products(conn: psycopg.Connection, rows: Sequence[ProductRow], timestam
         cur.executemany(
             """
             INSERT INTO products (
-                product_id, title, category, brand, price, description, image_url, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                product_id, title, category, category_path, brand, price, description, image_url,
+                created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (product_id) DO NOTHING
             """,
             [row + (timestamp, timestamp) for row in rows],
@@ -200,9 +218,10 @@ def generate_sql_dump(path: Path, meta: pd.DataFrame, train: pd.DataFrame) -> No
 
     user_lines = (f"({_sql_str(uid)}, NULL, {ts_literal}, {ts_literal})" for uid in user_ids)
     product_lines = (
-        f"({_sql_str(pid)}, {_sql_str(title)}, {_sql_str(category)}, {_sql_str(brand)}, "
-        f"{price:.2f}, {_sql_str(description)}, {_sql_str(image_url)}, {ts_literal}, {ts_literal})"
-        for pid, title, category, brand, price, description, image_url in product_rows
+        f"({_sql_str(pid)}, {_sql_str(title)}, {_sql_str(category)}, {_sql_str(category_path)}, "
+        f"{_sql_str(brand)}, {price:.2f}, {_sql_str(description)}, {_sql_str(image_url)}, "
+        f"{ts_literal}, {ts_literal})"
+        for pid, title, category, category_path, brand, price, description, image_url in product_rows
     )
     interaction_lines = (
         f"({_sql_str(uid)}, {_sql_str(pid)}, {_sql_str(event_type)}, {rating:.1f}, "
@@ -231,7 +250,7 @@ BEGIN;
         for stmt in _insert_statements(
             "products",
             [
-                "product_id", "title", "category", "brand", "price", "description",
+                "product_id", "title", "category", "category_path", "brand", "price", "description",
                 "image_url", "created_at", "updated_at",
             ],
             product_lines,

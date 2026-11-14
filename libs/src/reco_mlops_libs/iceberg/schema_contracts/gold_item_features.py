@@ -35,6 +35,8 @@ ICEBERG_SCHEMA = Schema(
     NestedField(12, "last_interaction_at", TimestamptzType(), required=False),
     NestedField(13, "computed_at", TimestamptzType(), required=True),
     NestedField(14, "image_url", StringType(), required=False),
+    # Cây danh mục nối bằng " > " — thuộc tính `categories` của AGF (ADR 0008).
+    NestedField(16, "category_path", StringType(), required=False),
 )
 
 PANDERA_SCHEMA = DataFrameSchema(
@@ -54,6 +56,7 @@ PANDERA_SCHEMA = DataFrameSchema(
         "last_interaction_at": Column("datetime64[us, UTC]", nullable=True),
         "computed_at": Column("datetime64[us, UTC]", nullable=False),
         "image_url": Column(str, nullable=True),
+        "category_path": Column(str, nullable=True),
     },
     strict=True,
     coerce=True,

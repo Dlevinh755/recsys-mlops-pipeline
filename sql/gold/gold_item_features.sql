@@ -6,6 +6,7 @@ SELECT
     p.product_id AS product_id,
     p.title AS title,
     p.category AS category,
+    p.category_path AS category_path,
     p.brand AS brand,
     p.price AS price,
     p.image_url AS image_url,
@@ -20,4 +21,4 @@ SELECT
     CURRENT_TIMESTAMP AS computed_at
 FROM silver_products AS p
 LEFT JOIN silver_interactions AS i ON i.product_id = p.product_id
-GROUP BY p.product_id, p.title, p.category, p.brand, p.price, p.image_url;
+GROUP BY p.product_id, p.title, p.category, p.category_path, p.brand, p.price, p.image_url;
