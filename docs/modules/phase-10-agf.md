@@ -1,0 +1,234 @@
+# Phase 10 — AGF-GRU4Rec thay GRU4Rec chỉ-ID (ADR 0008)
+
+> Tài liệu as-built. Quyết định và lý do: [ADR 0008](../decisions/0008-agf-gru4rec-thay-gru4rec.md).
+> Phương pháp (kiến trúc, quy tắc thuộc tính, cấu hình) đến từ repo thực
+> nghiệm `../experiment/` — bàn giao theo `experiment/docs/03-tich-hop-mlops.md`
+> mục "Thay đổi phía pipeline". Phase này không có trong `de-xuat-trien-khai.md`
+> (Phase 9 đã gộp vào Phase 4 theo ADR 0004); DoD lấy từ tài liệu bàn giao đó.
+
+**Trạng thái kiểm chứng (2026-11-14)**: code + test đã viết; chỉ phần không
+cần torch/docker đã chạy được trong môi trường viết code (13 unit test thuần
+pandas/numpy pass, toàn bộ file mới `py_compile` sạch). **Chưa chạy**: build
+image, test cần torch (`tests/model`, `serving/tests/test_score_candidates.py`),
+cold start với `category_path`, lần train đầu trên dữ liệu thật — xem mục 5.
+
+## 1. Mục tiêu ban đầu
+
+Theo `experiment/docs/03-tich-hop-mlops.md`:
+
+- ADR 0008 thay GRU4Rec, dẫn chứng từ `experiment/results/`.
+- Chép `agf_core.py`, `trainer.py`, `features.py` vào `libs/` (ghi nguồn +
+  commit SHA), tăng version `libs`, giữ interface `predict(user_id,
+  candidate_items)`.
+- Thêm thuộc tính item vào `gold.item_features`; text embedding tính trong job
+  train, không trong `serving`.
+- Chỉnh độ dài chuỗi theo kết quả 10 vs 50 (→ L = 10).
+- Không cài RecBole vào image nào.
+
+Thêm theo yêu cầu người dùng (2026-11-14): giữ **cây danh mục** như thực
+nghiệm (đổi schema Phase 1–2), baseline popularity để so sánh, cập nhật model
+card.
+
+## 2. Những gì đã triển khai
+
+### 2.1 Cột `category_path` qua mọi tầng
+
+| Tầng | Thay đổi |
+|---|---|
+| `source-db.products` | Cột `category_path TEXT` (nullable) — `infra/source-db/init/schema.sql` |
+| Seed | `scripts/seed_source_db.py::_category_path` nối `meta.parquet.categories` bằng `" > "`; cả 2 mode (load trực tiếp, `--dump-sql`) |
+| Extract (Phase 1) | Không sửa — truy vấn trang lấy mọi cột (`cur.description`) |
+| `bronze.products` | Field 13 `category_path` (optional); file staging cũ không có cột → `fill_missing_optional_columns` |
+| `silver.products` | Field 11; `sql/silver/silver_products.sql` chọn thêm cột |
+| `gold.item_features` | Field 16; `sql/gold/gold_item_features.sql` chọn + `GROUP BY` thêm cột |
+
+Lưu chuỗi thay vì mảng: không phải đổi kiểu list qua dlt/Parquet/Iceberg/pandera;
+job train tách lại (`agf_inputs.split_category_path`).
+
+### 2.2 `libs/` 0.7.0 — `reco_mlops_libs/ranking/agf/`
+
+`agf_core.py` (AGFItemEncoder + AGFSequentialModel), `features.py`, `trainer.py`
+chép nguyên từ `experiment` commit `58d50db`; khác biệt duy nhất: 3 dòng header
+ghi nguồn và import trong `trainer.py` trỏ vào package. `__init__.py` không
+import gì (image không có torch vẫn import được `features`). Thêm:
+`ranking/base.py::REGISTERED_MODEL_NAME = "reco-mlops-agf"` và
+`mlflow_utils/logging_helpers.py::log_iceberg_snapshots()` (lineage nhiều bảng —
+`log_iceberg_snapshot` cũ ghi cố định 2 key nên không gọi 2 lần được).
+
+### 2.3 Training — `jobs/training/train_agf.py`
+
+1. Đọc `gold.item_features` (`product_id, title, category, category_path,
+   brand, price`) và `gold.user_features` (`user_id, item_sequence,
+   event_time_sequence`).
+2. `agf_inputs.py` (thuần pandas): catalog đầy đủ sắp theo `product_id` → khung
+   metadata đúng cột `features.py` cần (`category_path`→`categories`,
+   `category`→`main_category`, `brand`→`store`); chuỗi → `(user, item,
+   timestamp)`; `build_catalog_items` = `trainer.prepare_items` nhưng trên
+   **toàn catalog** (item không có tương tác train vẫn có hàng trong `H`).
+3. `trainer.train` với `agf_method_config.yaml` (chép từ
+   `experiment/configs/handoff/method_config.yaml`).
+4. `trainer.export` → artifact `agf/` (`model_state.pt`, `item_table.npy`,
+   `item_vocab.json` dạng list, `feature_vocab.json`,
+   `price_bucket_edges.json`, `metrics.json`); job **fail** nếu
+   `item_table_max_abs_diff ≥ 1e-5`.
+5. MLflow: experiment + registry `reco-mlops-agf`; params cấu hình + kích
+   thước dữ liệu/vocab + snapshot Iceberg 2 bảng; metric `val_*`, `test_*`,
+   `baseline_pop_*`, history theo epoch; `item_vocab.json` gốc dạng
+   `{product_id: index}` (định dạng serving/monitoring đã đọc);
+   `mlflow.pytorch.log_model` + `register_model`.
+
+CLI: `--config`, `--seed` (2023), `--no-text`, `--epochs`, `--device` (cpu).
+
+### 2.4 Baseline popularity — `jobs/training/baselines.py`
+
+Pop = tần suất trong phần train (cùng `train_counts` AGF dùng cho `π`), xếp hạng
+trên toàn bộ item, hoà điểm tách theo chỉ số item; đánh giá trên đúng
+`samples["valid"]`/`["test"]` của run → `baseline_pop_val_*`,
+`baseline_pop_test_*` cùng run MLflow, so trực tiếp với `val_*`.
+
+### 2.5 Promote, DAG, Makefile
+
+- `promote.py`: mặc định `REGISTERED_MODEL_NAME` từ libs (không còn import từ
+  `train_sequence`); `--model-name reco-mlops-gru4rec` vẫn dùng được cho model cũ.
+- `dag_training`: `train_agf >> promote >> similar_items`.
+- `make train` → `train_agf`; `make train-gru4rec` → GRU4Rec cũ.
+
+### 2.6 Serving — `serving/app/core/model_loader.py`
+
+`LoadedModel` thêm `item_table` (tải `agf/item_table.npy` của chính version
+production, kiểm số hàng = vocab + 1). `score_candidates`: `s_u =
+net.seq_output(seq[-max_len:], H)`, điểm = `H[candidates] · s_u`, item ngoài
+vocab → 0,0. `ServingRanker.predict` giữ nguyên chữ ký (nguyên tắc #7).
+Không thêm dependency vào image `serving`.
+
+### 2.7 Candidates & monitoring
+
+- `jobs/candidates/similar_items.py`: cosine trên `H` (thay bảng ID của
+  GRU4Rec) — item lạnh cũng có danh sách tương tự từ thuộc tính.
+- `jobs/monitoring/model_quality_report.py`: tên registry lấy từ libs.
+
+### 2.8 Hạ tầng
+
+`infra/docker/training/Dockerfile`: lần `pip install` thứ hai (PyPI) đọc
+`requirements/training-pypi.txt` (`redis==5.2.1`, `sentence-transformers==3.4.1`);
+`CMD` mặc định `jobs.training.train_agf`.
+
+### 2.9 Test
+
+| Test | Chạy ở | Kiểm tra |
+|---|---|---|
+| `tests/unit/training/test_agf_inputs.py` | `training-job` (hoặc bất kỳ đâu có pandas) | Tách `category_path`; ánh xạ cột; thứ tự chuỗi; `train_counts` bỏ 2 item cuối; mã hoá trùng `features.py`; `[UNK]`/`[MISSING]`; text đúng thứ tự catalog; item lạ → lỗi |
+| `tests/unit/training/test_baselines.py` | như trên | Rank popularity, hoà điểm, NDCG/Recall tính tay |
+| `tests/model/test_train_agf_smoke.py` | `training-job` (Jenkins `Model Smoke Test` tự nhặt) | `run_training` end-to-end trên fixture, `--no-text`, 2 epoch; artifact `agf/item_table.npy`, `item_vocab.json` |
+| `serving/tests/test_score_candidates.py` | image `serving` (chạy tay) | Điểm serving = điểm full-ranking của model; cắt `max_len`; kiểm số hàng `H` |
+| `serving/tests/test_model_reload.py` | `training-job` + stack CI | Đổi sang train 2 version AGF tí hon |
+
+## 3. Khác biệt so với đề xuất ban đầu
+
+- **Lệch so với thực nghiệm** (đã ghi ở ADR 0008): dữ liệu Cell Phones k-core
+  8; train CPU; chuỗi train lấy từ `gold.user_features` (≤ 10 item/user) thay
+  vì toàn bộ lịch sử; `store` = `brand`; cây danh mục của Cell Phones.
+- `trainer.prepare_items` của thực nghiệm chỉ lấy item có trong tương tác;
+  pipeline dùng `build_catalog_items` (toàn catalog) để item lạnh vẫn được chấm
+  — cùng quy tắc mã hoá, chỉ khác tập item.
+- Registry đổi tên (`reco-mlops-agf`) thay vì ghi tiếp `reco-mlops-gru4rec`.
+- `serving/tests/test_score_candidates.py` không có stage Jenkins (như các
+  test serving khác hiện có — Jenkins chỉ test 3 image).
+
+## 4. Definition of Done — đối chiếu (`experiment/docs/03`)
+
+| Mục | Trạng thái |
+|---|---|
+| ADR 0008 thay GRU4Rec, dẫn chứng `results/` | ✅ |
+| Chép 3 file vào `libs/`, ghi nguồn + SHA, tăng version | ✅ 0.7.0 |
+| Giữ interface `predict(user_id, candidate_items)` | ✅ |
+| Thuộc tính trong `gold.item_features` | ✅ `category_path` mới + `category`/`brand`/`price`/`title` sẵn có |
+| Text embedding trong job train, không trong serving | ✅ |
+| Độ dài chuỗi 10 | ✅ `max_len: 10` (khớp `MAX_SEQUENCE_LENGTH`) |
+| Không cài RecBole | ✅ |
+| Job train pipeline tự train + serve | ⚠️ code xong, **chưa chạy thật** (mục 5) |
+
+## 5. Việc còn để lại
+
+1. **Sinh lại seed + cold start** (bắt buộc để có `category_path`; môi trường
+   viết code không đọc được parquet):
+
+   ```bash
+   python scripts/seed_source_db.py --dump-sql infra/source-db/init/seed_data_amazon.sql
+   make clean && make up        # volume source-db mới → nạp seed mới
+   # rồi chạy lại extract → bronze → silver → gold → user_features → materialize
+   ```
+
+2. Build lại image + chạy test cần torch:
+
+   ```bash
+   docker compose --profile jobs build training-job serving
+   docker compose --profile jobs run --rm --entrypoint python training-job -m pytest tests/unit/training tests/model -v
+   docker compose run --rm --entrypoint python serving -m unittest serving.tests.test_score_candidates -v
+   ```
+
+3. `make train && make promote && make similar-items`; điền bảng metric ở
+   `docs/model_card.md` (so `val_ndcg_at_10` với `baseline_pop_val_ndcg_at_10`).
+4. Kiểm tra `sentence-transformers==3.4.1` cài được cùng `torch==2.9.0` khi
+   build (chưa build thử); container cần mạng tới Hugging Face ở lần train
+   đầu, nếu không dùng `make train ARGS="--no-text"`.
+5. `ui/app.py` còn câu "GRU4Rec chấm điểm theo chuỗi hành vi" — chưa sửa vì
+   file đang có thay đổi xuống dòng CRLF chưa commit trên máy người dùng.
+6. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, Jenkins chưa
+   chạy thật, drift → retrain chưa khép kín) không đổi.
+
+## 6. Danh sách file đã triển khai
+
+### `libs/` (version 0.7.0)
+
+| Đường dẫn | Vai trò | Config/setting đáng chú ý |
+|---|---|---|
+| `libs/src/reco_mlops_libs/ranking/agf/__init__.py` | Package AGF | Không import gì (tránh kéo torch) |
+| `libs/src/reco_mlops_libs/ranking/agf/agf_core.py` | `AGFItemEncoder`, `AGFSequentialModel` | Chép từ `experiment` `58d50db`; cần torch |
+| `libs/src/reco_mlops_libs/ranking/agf/features.py` | Quy tắc thuộc tính + `train_counts` | `MIN_TOKEN_COUNT = MIN_STORE_ITEMS = 5`, 10 bucket giá, MiniLM |
+| `libs/src/reco_mlops_libs/ranking/agf/trainer.py` | `MethodConfig`, `train`, `evaluate`, `export` | Patience 10 kiểu RecBole (`>=`) |
+| `libs/src/reco_mlops_libs/ranking/base.py` | Thêm `REGISTERED_MODEL_NAME` | `"reco-mlops-agf"` |
+| `libs/src/reco_mlops_libs/mlflow_utils/logging_helpers.py` | Thêm `log_iceberg_snapshots()` | Param `iceberg_snapshot_id.<bảng>` |
+| `libs/src/reco_mlops_libs/iceberg/schema_contracts/{bronze_products,silver_products,gold_item_features}.py` | Cột `category_path` | Field id 13 / 11 / 16, nullable |
+
+### Dữ liệu & SQL
+
+| Đường dẫn | Vai trò | Config/setting đáng chú ý |
+|---|---|---|
+| `infra/source-db/init/schema.sql` | Cột `products.category_path` | `TEXT` nullable |
+| `scripts/seed_source_db.py` | Sinh `category_path` khi seed | `CATEGORY_PATH_SEPARATOR = " > "` |
+| `sql/silver/silver_products.sql` | Mang `category_path` sang Silver | — |
+| `sql/gold/gold_item_features.sql` | Mang `category_path` sang Gold | Thêm vào `GROUP BY` |
+
+### `jobs/` (image `training-job`, trừ monitoring)
+
+| Đường dẫn | Vai trò | Config/setting đáng chú ý |
+|---|---|---|
+| `jobs/training/train_agf.py` | Job train AGF + log MLflow | `EXPERIMENT_NAME = REGISTERED_MODEL_NAME`; CLI `--no-text/--epochs/--seed`; fail nếu lệch `H` ≥ 1e-5 |
+| `jobs/training/agf_inputs.py` | Gold → đầu vào AGF (thuần pandas) | `CATEGORY_PATH_SEPARATOR = " > "` |
+| `jobs/training/baselines.py` | Popularity cùng split | Hoà điểm tách theo chỉ số |
+| `jobs/training/agf_method_config.yaml` | Cấu hình đã chốt | gru4rec, d 64, L 10, dropout 0,2 |
+| `jobs/training/promote.py` | Mặc định registry mới | `--model-name` cho registry cũ |
+| `jobs/training/train_sequence.py` | GRU4Rec cũ (legacy) | Registry `reco-mlops-gru4rec` |
+| `jobs/candidates/similar_items.py` | Cosine trên `H` | Artifact `agf/item_table.npy` |
+| `jobs/monitoring/model_quality_report.py` | Tên registry từ libs | — |
+
+### Serving
+
+| Đường dẫn | Vai trò | Config/setting đáng chú ý |
+|---|---|---|
+| `serving/app/core/model_loader.py` | Tải model + `H`, `score_candidates`, `ServingRanker` | `ITEM_TABLE_ARTIFACT = "agf/item_table.npy"` |
+
+### Hạ tầng, orchestration & test
+
+| Đường dẫn | Vai trò | Config/setting đáng chú ý |
+|---|---|---|
+| `infra/docker/training/Dockerfile` | Cài `training-pypi.txt`, CMD mới | `CMD ["jobs.training.train_agf"]` |
+| `requirements/training-pypi.txt` | Dependency PyPI của image training | `sentence-transformers==3.4.1`, `redis==5.2.1` |
+| `airflow/dags/dag_training.py` | `train_agf >> promote >> similar_items` | task id `train_agf` |
+| `Makefile` | `train` → AGF, thêm `train-gru4rec` | — |
+| `tests/unit/training/test_agf_inputs.py` | Unit test ánh xạ dữ liệu | Không cần torch |
+| `tests/unit/training/test_baselines.py` | Unit test popularity | Không cần torch |
+| `tests/model/test_train_agf_smoke.py` | Smoke test train AGF | `use_text=False`, 2 epoch, `file://` MLflow |
+| `serving/tests/test_score_candidates.py` | Serving khớp full ranking | Model tí hon d = 8 |
+| `serving/tests/test_model_reload.py` | Reload version không restart | Train 2 version AGF |

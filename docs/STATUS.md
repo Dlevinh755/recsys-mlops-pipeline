@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-10-11 (đồng bộ tài liệu sau Phase 8)
+Cập nhật lần cuối: 2026-11-14 (Phase 10 — AGF-GRU4Rec, ADR 0008)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -17,8 +17,19 @@ Cập nhật lần cuối: 2026-10-11 (đồng bộ tài liệu sau Phase 8)
 | 7 | Monitoring (Prometheus/Grafana + Evidently) | ✅ Hoàn thành | [phase-7-monitoring.md](modules/phase-7-monitoring.md) |
 | 8 | CI/CD, test, tài liệu, đóng gói `libs/` | ✅ Hoàn thành | [phase-8-cicd.md](modules/phase-8-cicd.md) |
 | 9 | ~~Sequence Model (mở rộng, tùy chọn)~~ — gộp vào Phase 4 theo ADR 0004 | ⬜ N/A | — |
+| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Code xong, chờ chạy thật (cold start, build image, train lần đầu) | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
+
+**Phase 10 (2026-11-14)** — model chính đổi sang **AGF-GRU4Rec** (repo thực
+nghiệm `../experiment/`, ADR 0008): `libs` 0.7.0 thêm `ranking/agf/`; job
+`train_agf` (L = 10, text MiniLM, baseline popularity cùng split); serving
+chấm bằng bảng `H` tính trước; cột `category_path` mới từ `source-db` tới
+`gold.item_features`. Chỉ test không cần torch/docker đã chạy (13 unit test
+pass). **Việc tiếp theo**: sinh lại `seed_data_amazon.sql` + cold start, build
+image, chạy `tests/unit/training tests/model`, `make train && make promote` —
+lệnh đầy đủ ở `phase-10-agf.md` mục 5.
+
 
 **Toàn bộ MVP1 (Phase 0–8) đã hoàn thành.** Không còn phase nào "kế tiếp"
 theo `de-xuat-trien-khai.md` — Phase 9 (sequence model) đã gộp vào Phase 4
@@ -53,8 +64,9 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
 2. **CI/CD chưa chạy thật qua Jenkins** — repo đã có remote `origin`
    (GitHub), còn thiếu Docker Hub token, dựng Jenkins và tạo job Multibranch
    Pipeline; chưa kiểm chứng `GIT_SHA` trong ngữ cảnh Jenkins checkout.
-3. **Chất lượng model thấp** (NDCG@10 ≈ 0.008) và chưa có baseline so sánh
-   (popularity/item-KNN); `test.parquet`/`incoming/` chưa nạp.
+3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
+   (AGF + baseline popularity log cùng run); chưa có số đo thật trên Cell
+   Phones. `test.parquet`/`incoming/` vẫn chưa nạp.
 4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
    "mua" (chưa có impression/click để tính online metric).
@@ -99,3 +111,6 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
 - [0007](decisions/0007-downgrade-feast-for-mlflow-compat.md) — Hạ
   `feast` 0.66.0 → 0.55.0 (Phase 5) — xung đột dependency thật với
   `mlflow-skinny` khi `serving` cần dùng cả 2 cùng lúc
+- [0008](decisions/0008-agf-gru4rec-thay-gru4rec.md) — AGF-GRU4Rec thay
+  GRU4Rec chỉ-ID làm model chính (chọn ở repo thực nghiệm), thêm cột
+  `category_path` (Phase 10)
