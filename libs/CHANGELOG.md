@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0 — 2026-11-14
+
+- Thêm package `ranking/agf/` (ADR 0008) — `agf_core.py` (kiến trúc AGF +
+  `AGFSequentialModel`, PyTorch thuần), `features.py` (quy tắc thuộc tính
+  item: `[UNK]`/`[MISSING]`, bucket giá theo quantile, text MiniLM, độ phổ
+  biến chỉ đếm trên train), `trainer.py` (train/đánh giá/xuất artifact). Chép
+  nguyên từ repo thực nghiệm `experiment/` commit `58d50db`, chỉ đổi import;
+  nguồn ghi ở đầu mỗi file. `torch`/`sentence-transformers`/`pyyaml` **không**
+  thêm vào dependency của `libs` (giống `ranking/gru4rec.py`): chỉ image
+  `training` (đủ cả 3) và `serving` (chỉ `agf_core`, cần torch) import.
+- Thêm hằng `REGISTERED_MODEL_NAME = "reco-mlops-agf"` vào `ranking/base.py`
+  — tên registry dùng chung cho training/promote/serving/candidates/monitoring.
+- Thêm cột `category_path` (string, nullable — cây danh mục nối bằng `" > "`)
+  vào schema contract `bronze_products`, `silver_products`,
+  `gold_item_features`. **Cần cold start** (xem `docs/modules/phase-10-agf.md`).
+
 ## 0.6.0 — 2026-09-28
 
 - Thêm cột `title` (required, lấy từ `silver.products`, luôn có sẵn) vào

@@ -9,4 +9,5 @@ trường (`common/env.py`), interface ranking model dùng chung cho tầng
 serving (`ranking/base.py`), kiến trúc GRU4Rec dùng chung giữa training và
 serving (`ranking/gru4rec.py` — cần `torch`, chỉ 2 image đó cài, không phải
 dependency của `libs` nói chung), helper MLflow registry + lineage
-(`mlflow_utils/`). Xem `CHANGELOG.md` để biết chi tiết từng version.
+(`mlflow_utils/`), model chính AGF-GRU4Rec (`ranking/agf/` — ADR 0008; kiến trúc,
+quy tắc thuộc tính và vòng train chép từ repo thực nghiệm, cần `torch`). Xem `CHANGELOG.md` để biết chi tiết từng version.

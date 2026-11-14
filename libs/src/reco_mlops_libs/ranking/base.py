@@ -18,6 +18,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+# Registry name of the production ranking model (ADR 0008: AGF-GRU4Rec).
+# Shared by jobs/training (train_agf, promote), jobs/candidates,
+# jobs/monitoring and serving so they can never drift apart. The legacy
+# ID-only GRU4Rec (`jobs/training/train_sequence.py`) keeps its own
+# registry name `reco-mlops-gru4rec` — its metrics are not comparable.
+REGISTERED_MODEL_NAME = "reco-mlops-agf"
+
 
 class RankingModel(ABC):
     """Thin interface every ranking model implementation must satisfy."""
