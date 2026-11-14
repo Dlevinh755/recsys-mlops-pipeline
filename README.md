@@ -2,15 +2,19 @@
 
 MVP local cho pipeline gợi ý sản phẩm:
 
-`source-db -> Iceberg/MinIO -> Feast/Redis -> GRU4Rec/MLflow -> FastAPI -> monitoring`
+`source-db -> Iceberg/MinIO -> Feast/Redis -> AGF-GRU4Rec/MLflow -> FastAPI -> monitoring`
 
-Model ranking chính là GRU4Rec (sequence model), không phải LightGBM như đề
-xuất ban đầu — xem
-[`docs/decisions/0004-gru-sequence-model-thay-lightgbm.md`](docs/decisions/0004-gru-sequence-model-thay-lightgbm.md).
+Model ranking chính là **AGF-GRU4Rec** (sequence model trộn item ID với thuộc
+tính sản phẩm, chọn từ repo thực nghiệm `../experiment/`) — xem
+[`docs/decisions/0008-agf-gru4rec-thay-gru4rec.md`](docs/decisions/0008-agf-gru4rec-thay-gru4rec.md).
+Trước đó là GRU4Rec chỉ dùng ID
+([ADR 0004](docs/decisions/0004-gru-sequence-model-thay-lightgbm.md)), nay giữ
+lại để chạy tay làm mốc so sánh.
 
 Trạng thái từng phase: xem [`docs/STATUS.md`](docs/STATUS.md). Tóm tắt
 nhanh: Phase 0–3 (hạ tầng, extract, lakehouse Iceberg, feature store
-Feast/Redis) đã xong; Phase 4 (training GRU4Rec) đang tới.
+Feast/Redis) đã xong; Phase 4–8 đã xong; Phase 10 (AGF, ADR 0008) — xem
+[`docs/modules/phase-10-agf.md`](docs/modules/phase-10-agf.md).
 
 ## Yêu cầu
 
@@ -186,22 +190,23 @@ print(store.get_online_features(
 "
 ```
 
-## Chạy Phase 4 training (GRU4Rec)
+## Chạy training (AGF-GRU4Rec, ADR 0008)
 
 Sau khi Phase 3 đã có `gold.user_features`/`gold.item_features`, train model
-ranking chính (GRU4Rec, ADR 0004) và đẩy version lên MLflow registry:
+ranking chính (AGF-GRU4Rec) và đẩy version lên MLflow registry:
 
 ```bash
 docker compose --profile jobs build training-job
-docker compose --profile jobs run --rm training-job jobs.training.build_sequence_dataset  # sanity check
-make train                                    # hoặc: docker compose --profile jobs run --rm training-job jobs.training.train_sequence
+make train                                    # jobs.training.train_agf (lần đầu tải MiniLM từ Hugging Face)
+make train ARGS="--no-text"                   # không cần mạng: bỏ nhánh text
 make promote                                  # gate: chỉ promote nếu vượt production hiện tại
-make evaluate ARGS="--run-id <id>"            # re-evaluate độc lập 1 run đã train
+make train-gru4rec                            # GRU4Rec chỉ-ID cũ (ADR 0004), registry riêng, chỉ để so sánh
 ```
 
-MLflow UI: http://localhost:5000 (experiment `reco-mlops-gru4rec`). Chi
-tiết kiến trúc, cách tách train/val, và lý do dùng alias MLflow thay stage:
-[`docs/modules/phase-4-training.md`](docs/modules/phase-4-training.md).
+MLflow UI: http://localhost:5000 (experiment/registry `reco-mlops-agf`; metric
+`val_ndcg_at_10`, `test_ndcg_at_10` và baseline `baseline_pop_*` trên cùng
+split). Chi tiết: [`docs/modules/phase-10-agf.md`](docs/modules/phase-10-agf.md);
+GRU4Rec cũ: [`docs/modules/phase-4-training.md`](docs/modules/phase-4-training.md).
 
 ## Chạy Phase 5 serving (FastAPI) + UI (Streamlit)
 

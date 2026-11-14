@@ -23,7 +23,7 @@ make clean          # dừng + XOÁ volume (mất toàn bộ dữ liệu local)
 
 ```
 extract → build_bronze → build_silver → build_gold → build_user_features
-  → { export_to_parquet → feast_materialize , train_sequence → promote
+  → { export_to_parquet → feast_materialize , train_agf → promote
       → similar_items }
 ```
 
@@ -36,7 +36,7 @@ hay build lại gì:
 ```bash
 docker compose --profile jobs run --rm --entrypoint python training-job -c "
 from reco_mlops_libs.mlflow_utils.registry_client import get_client, set_production_version
-set_production_version('reco-mlops-gru4rec', '<version cũ muốn rollback về>', client=get_client())
+set_production_version('reco-mlops-agf', '<version cũ muốn rollback về>', client=get_client())
 "
 ```
 
