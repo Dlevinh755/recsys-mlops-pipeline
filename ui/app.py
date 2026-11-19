@@ -168,7 +168,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption(
-        "GRU4Rec chấm điểm theo chuỗi hành vi." if is_model else "Chưa đủ lịch sử — hiện sản phẩm phổ biến."
+        "AGF-GRU4Rec chấm điểm theo chuỗi hành vi + thuộc tính sản phẩm." if is_model else "Chưa đủ lịch sử — hiện sản phẩm phổ biến."
     )
 
 st.subheader(f"Gợi ý cho {short_id(user_id)}")
