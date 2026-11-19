@@ -17,7 +17,7 @@ Cập nhật lần cuối: 2026-11-20 (Phase 10 — AGF-GRU4Rec đã chạy th�
 | 7 | Monitoring (Prometheus/Grafana + Evidently) | ✅ Hoàn thành | [phase-7-monitoring.md](modules/phase-7-monitoring.md) |
 | 8 | CI/CD, test, tài liệu, đóng gói `libs/` | ✅ Hoàn thành | [phase-8-cicd.md](modules/phase-8-cicd.md) |
 | 9 | ~~Sequence Model (mở rộng, tùy chọn)~~ — gộp vào Phase 4 theo ADR 0004 | ⬜ N/A | — |
-| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19); còn chạy test cần torch + 8 dòng fixture mở | [phase-10-agf.md](modules/phase-10-agf.md) |
+| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; còn 8 dòng fixture mở | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
 
@@ -29,8 +29,7 @@ chấm bằng bảng `H` tính trước; cột `category_path` mới từ `sourc
 extract → Bronze → Silver → Gold → user_features → Feast → train → promote →
 similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_10`
 0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
-`model_card.md`. **Việc còn lại**: chạy `pytest tests/unit/training
-tests/model` trong image training (cần torch); điều tra 8 dòng fixture không
+`model_card.md`. **Việc còn lại**: điều tra 8 dòng fixture không
 vào Bronze; chạy thử Airflow/Jenkins/monitoring với model mới.
 
 

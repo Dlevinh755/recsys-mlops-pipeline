@@ -146,7 +146,7 @@ Không thêm dependency vào image `serving`.
 | Text embedding trong job train, không trong serving | ✅ |
 | Độ dài chuỗi 10 | ✅ `max_len: 10` (khớp `MAX_SEQUENCE_LENGTH`) |
 | Không cài RecBole | ✅ |
-| Job train pipeline tự train + serve | ✅ chạy thật 2026-11-19 (mục 7); còn test cần torch trong container (mục 5.2) |
+| Job train pipeline tự train + serve | ✅ chạy thật 2026-11-19 (mục 7); 26 test pass trong image training |
 
 ## 5. Việc còn để lại
 
@@ -159,7 +159,7 @@ Không thêm dependency vào image `serving`.
    # rồi chạy lại extract → bronze → silver → gold → user_features → materialize
    ```
 
-2. Build lại image + chạy test cần torch:
+2. ~~Build lại image + chạy test cần torch~~ — đã chạy 2026-11-20 trong image training: `pytest tests/unit/training tests/model` → **26 passed** (gồm smoke test train_agf). `serving.tests.test_score_candidates` chưa chạy lại trong image serving. Lệnh gốc:
 
    ```bash
    docker compose --profile jobs build training-job serving
