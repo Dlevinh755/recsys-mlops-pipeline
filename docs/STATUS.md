@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-14 (Phase 10 — AGF-GRU4Rec, ADR 0008)
+Cập nhật lần cuối: 2026-11-20 (Phase 10 — AGF-GRU4Rec đã chạy thật end-to-end)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -17,7 +17,7 @@ Cập nhật lần cuối: 2026-11-14 (Phase 10 — AGF-GRU4Rec, ADR 0008)
 | 7 | Monitoring (Prometheus/Grafana + Evidently) | ✅ Hoàn thành | [phase-7-monitoring.md](modules/phase-7-monitoring.md) |
 | 8 | CI/CD, test, tài liệu, đóng gói `libs/` | ✅ Hoàn thành | [phase-8-cicd.md](modules/phase-8-cicd.md) |
 | 9 | ~~Sequence Model (mở rộng, tùy chọn)~~ — gộp vào Phase 4 theo ADR 0004 | ⬜ N/A | — |
-| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Code xong, chờ chạy thật (cold start, build image, train lần đầu) | [phase-10-agf.md](modules/phase-10-agf.md) |
+| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19); còn chạy test cần torch + 8 dòng fixture mở | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
 
@@ -25,10 +25,13 @@ Cập nhật lần cuối: 2026-11-14 (Phase 10 — AGF-GRU4Rec, ADR 0008)
 nghiệm `../experiment/`, ADR 0008): `libs` 0.7.0 thêm `ranking/agf/`; job
 `train_agf` (L = 10, text MiniLM, baseline popularity cùng split); serving
 chấm bằng bảng `H` tính trước; cột `category_path` mới từ `source-db` tới
-`gold.item_features`. Chỉ test không cần torch/docker đã chạy (13 unit test
-pass). **Việc tiếp theo**: sinh lại `seed_data_amazon.sql` + cold start, build
-image, chạy `tests/unit/training tests/model`, `make train && make promote` —
-lệnh đầy đủ ở `phase-10-agf.md` mục 5.
+`gold.item_features`. **2026-11-19**: đã cold start với bộ `Video_Games`, chạy tay
+extract → Bronze → Silver → Gold → user_features → Feast → train → promote →
+similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_10`
+0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
+`model_card.md`. **Việc còn lại**: chạy `pytest tests/unit/training
+tests/model` trong image training (cần torch); điều tra 8 dòng fixture không
+vào Bronze; chạy thử Airflow/Jenkins/monitoring với model mới.
 
 
 **Toàn bộ MVP1 (Phase 0–8) đã hoàn thành.** Không còn phase nào "kế tiếp"

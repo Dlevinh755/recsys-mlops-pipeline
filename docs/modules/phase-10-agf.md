@@ -146,7 +146,7 @@ Không thêm dependency vào image `serving`.
 | Text embedding trong job train, không trong serving | ✅ |
 | Độ dài chuỗi 10 | ✅ `max_len: 10` (khớp `MAX_SEQUENCE_LENGTH`) |
 | Không cài RecBole | ✅ |
-| Job train pipeline tự train + serve | ⚠️ code xong, **chưa chạy thật** (mục 5) |
+| Job train pipeline tự train + serve | ✅ chạy thật 2026-11-19 (mục 7); còn test cần torch trong container (mục 5.2) |
 
 ## 5. Việc còn để lại
 
@@ -167,15 +167,62 @@ Không thêm dependency vào image `serving`.
    docker compose run --rm --entrypoint python serving -m unittest serving.tests.test_score_candidates -v
    ```
 
-3. `make train && make promote && make similar-items`; điền bảng metric ở
-   `docs/model_card.md` (so `val_ndcg_at_10` với `baseline_pop_val_ndcg_at_10`).
-4. Kiểm tra `sentence-transformers==3.4.1` cài được cùng `torch==2.9.0` khi
-   build (chưa build thử); container cần mạng tới Hugging Face ở lần train
-   đầu, nếu không dùng `make train ARGS="--no-text"`.
-5. `ui/app.py` còn câu "GRU4Rec chấm điểm theo chuỗi hành vi" — chưa sửa vì
-   file đang có thay đổi xuống dòng CRLF chưa commit trên máy người dùng.
-6. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, Jenkins chưa
+3. ~~`make train && make promote && make similar-items`~~ — đã chạy 2026-11-19,
+   bảng metric đã điền ở `docs/model_card.md` (mục 7).
+4. ~~Kiểm tra `sentence-transformers==3.4.1` + `torch==2.9.0`~~ — build image
+   `training-job` thành công, train có nhánh text chạy được.
+5. ~~`ui/app.py` còn câu "GRU4Rec"~~ — đã sửa thành "AGF-GRU4Rec".
+6. **Chưa làm**: 8 dòng interaction fixture (`id` 14749–14756, `seed_data.sql`)
+   không vào Bronze — extract trả 14.748 thay vì 14.756 dòng; mục 7.3.
+7. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, Jenkins chưa
    chạy thật, drift → retrain chưa khép kín) không đổi.
+
+## 7. Kết quả chạy thật (2026-11-19, test tay từng bước)
+
+Cold start → từng job chạy ngoài Airflow, theo thứ tự dưới đây.
+
+### 7.1 Số liệu qua từng tầng
+
+| Bước | Kết quả |
+|---|---|
+| Source-db (sau seed) | products 687 (682 có `category_path`), users 1.422, interactions 14.756 |
+| Extract | products 687, interactions 14.748; chạy lại lần 2 → 0 dòng |
+| Bronze | products 687, interactions 14.748 (mỗi bảng 1 snapshot) |
+| Silver | 687 / 14.748 (không có bản trùng) |
+| Gold | `item_features` 687, `user_features` 1.419 |
+| Feast | `export_to_parquet` 687/1.419; `feast apply` + materialize vào Redis OK |
+| Train | `val_ndcg_at_10` 0,0913 vs Pop 0,0444; số đầy đủ ở `model_card.md` |
+| Promote | version 1 → alias `production` (chưa có champion) |
+| `similar_items` | 687 key Redis |
+| Serving | `/health` → `model_version: "1"` (tự nạp qua polling, không restart); `/recommend/homepage` nguồn `model`; `/recommend/similar` nguồn `similar_items` |
+| UI | gợi ý hợp lịch sử (user thích PS4 action-RPG nhận God of War, RDR2, AC Odyssey…); bấm mua → danh sách đổi ngay (Spider-Man GOTY, Nioh, Miles Morales lên đầu) |
+
+### 7.2 Quan sát khi test tay
+
+- **Giao diện Lakekeeper không query/preview được bảng** (lỗi "Full download
+  failed … 404" rồi "CORS Error"): DuckDB-WASM chạy trong trình duyệt nên cần
+  (1) S3 endpoint truy cập được từ trình duyệt cùng URL Lakekeeper dùng
+  (`minio:9000` chỉ phân giải trong mạng Docker; thêm `127.0.0.1 minio` vào
+  hosts giải quyết phần này), (2) CORS trên MinIO, (3) credential tạm do
+  Lakekeeper cấp — `bootstrap.sh` đặt `sts-enabled: false` nên request tới
+  bucket private bị `AccessDenied`. Dữ liệu không hỏng: đọc lại bảng bằng
+  PyIceberg trong container cho đúng số dòng. Quyết định: không bật STS, xem
+  dữ liệu bằng PyIceberg/MinIO Console (file `.gz.metadata.json` và `.avro`
+  không preview được là bình thường).
+- Cảnh báo `Delete operation did not match any records` ở Silver/Gold lần chạy
+  đầu là bình thường (`overwrite` = delete + append trên bảng rỗng).
+- Test `/interact` đã ghi 1 dòng thật vào `source-db` và Redis (user
+  `AE25ZD…ME4A`, mua Spider-Man): dữ liệu demo hiện lệch seed 1 dòng.
+
+### 7.3 Việc mở: 8 dòng fixture không vào Bronze
+
+`seed_data.sql` thêm 8 interaction fixture (`id` 14749–14756, `updated_at`
+tháng 01/2026, sớm hơn dữ liệu Amazon 2026-11-14) nhưng extract chỉ trả
+14.748 dòng, trong khi 5 sản phẩm fixture thì có mặt. Truy vấn trang đầu
+(`updated_at > EPOCH`, `ORDER BY updated_at, id`) về lý thuyết phải lấy cả
+8 dòng. Nguyên nhân chưa xác định; giả thuyết: state incremental của dlt còn
+sót hoặc dlt lọc dòng theo cursor. Không ảnh hưởng demo (dữ liệu Amazon đủ).
+Chưa phải ADR vì chưa có quyết định lệch tài liệu.
 
 ## 6. Danh sách file đã triển khai
 

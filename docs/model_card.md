@@ -31,8 +31,10 @@ epoch), seed 2023. Train trên CPU.
 
 ## Dữ liệu huấn luyện
 
-Amazon Reviews 2023 `Cell_Phones_and_Accessories`, k-core 8 (~16K tương tác,
-~1,5K user, ~1,5K item) qua pipeline Phase 1–3:
+Amazon Reviews 2023 `Video_Games` (Nintendo Switch + PlayStation 4 + Xbox
+One, top 3000 item nhiều review nhất, k-core 8) — tập seed gồm 14.748 tương
+tác, 1.419 user, 682 item (cộng 5 sản phẩm fixture `p001–p005` của
+`seed_data.sql` → 687 dòng `gold.item_features`), qua pipeline Phase 1–3:
 
 - Chuỗi: `gold.user_features` (tối đa 10 item gần nhất/user) — cùng nguồn với
   chuỗi serving đọc từ Feast.
@@ -58,13 +60,19 @@ run MLflow:
 | `baseline_pop_val_*`, `baseline_pop_test_*` | Popularity (đếm trên train) **trên đúng split và cách xếp hạng đó** — mốc tối thiểu model phải vượt |
 | `item_table_max_abs_diff` | Sai khác giữa điểm từ `item_table.npy` (serving) và điểm tính trực tiếp — phải < 1e-5 (job tự fail nếu không) |
 
-**Chưa có số đo trên dữ liệu pipeline**: model mới được tích hợp 2026-11-14,
-chưa chạy lần train đầu sau cold start. Điền bảng dưới sau lần chạy đầu
-(`make train && make promote`):
+**Số đo trên dữ liệu pipeline** (lần train đầu sau cold start, 2026-11-19,
+CPU, seed mặc định, 1 lần chạy; 7.581 mẫu train, 1.378 mẫu valid; dừng ở
+epoch 56, epoch tốt nhất 44, ~35 giây):
 
-| Version | `val_ndcg_at_10` | `baseline_pop_val_ndcg_at_10` | `test_ndcg_at_10` |
-|---|---|---|---|
-| 1 | — | — | — |
+| Version | Split | NDCG@10 AGF | NDCG@10 Pop | Recall@10 AGF | Recall@10 Pop | Recall@20 AGF | Recall@20 Pop |
+|---|---|---|---|---|---|---|---|
+| 1 | valid | 0,0913 | 0,0444 | 0,1756 | 0,0958 | 0,2605 | 0,1611 |
+| 1 | test | 0,0795 | 0,0393 | 0,1480 | 0,0871 | 0,2293 | 0,1524 |
+
+`item_table_max_abs_diff = 0,0` (bảng `H` của serving khớp điểm tính trực
+tiếp); `n_params = 125.504`. Với ~1,4K mẫu valid, sai số chuẩn của Recall@10
+cỡ ±0,01 và chỉ có 1 seed — đây là số minh hoạ cho demo, không phải kết luận
+thống kê. Run MLflow `ee00649754234186b7ea2ba946bfb199`.
 
 Tham chiếu từ thực nghiệm có kiểm soát (không phải dữ liệu pipeline — không
 so trực tiếp): AGF-GRU4Rec valid N@10 0,0321 (Scientific) / 0,0543 (Games),
@@ -73,7 +81,7 @@ GRU4Rec chỉ-ID 0,0214 / 0,0481, Pop 0,0096 / 0,0117
 
 ## Giới hạn đã biết
 
-- **Dataset pipeline nhỏ** (~1,5K item) — kết quả dao động mạnh giữa các lần
+- **Dataset pipeline nhỏ** (~0,7K item) — kết quả dao động mạnh giữa các lần
   train; mục tiêu là demo hạ tầng MLOps. Kết quả ở đây **không** dùng để chọn
   phương pháp hay đưa vào paper (phương pháp được chọn ở repo thực nghiệm).
 - **Chuỗi train bị cắt 10 item/user** (thiết kế `gold.user_features`) nên số
