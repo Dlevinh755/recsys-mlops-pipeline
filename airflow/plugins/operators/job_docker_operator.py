@@ -64,7 +64,13 @@ class JobDockerOperator(DockerOperator):
     def __init__(self, *, compose_service: str, module: str | None = None, **kwargs) -> None:
         service = _compose_config()["services"][compose_service]
         super().__init__(
-            image=f"{_project_name()}-{compose_service}:latest",
+            # Since Phase 8 every job service declares `image:` (tag
+            # `${DOCKERHUB_USERNAME:-local}/mlops4rec-<x>:${IMAGE_TAG:-dev}`),
+            # and `docker compose config` returns it resolved — that is the
+            # image `docker compose build`/`make` actually produces. The old
+            # `<project>-<service>:latest` name only exists for build-only
+            # services, so keep it as a fallback.
+            image=service.get("image") or f"{_project_name()}-{compose_service}:latest",
             command=[module] if module else None,
             environment=service.get("environment", {}),
             docker_url="unix://var/run/docker.sock",
