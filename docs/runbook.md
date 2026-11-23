@@ -64,6 +64,7 @@ docker compose restart serving
 | Airflow task fail `DockerContainerFailedException` | Container job thật lỗi (xem log ngay trong Airflow UI, `DockerOperator` stream log về) | Xem `docker logs` hoặc log task trên UI, sửa job, `airflow tasks clear` rồi trigger lại |
 | Jenkins `Build & Push Images` fail, các stage khác pass | `dockerhub-creds` chưa có Access Token thật (mặc định để trống) | Set `DOCKERHUB_TOKEN` trong `.env`, restart Jenkins container để JCasC nạp lại |
 | Ruff/pytest báo lỗi cache "Read-only file system" khi lint qua bind-mount | Mount `:ro` không ghi cache được | Dùng `ruff check --no-cache` (đã áp dụng trong `Jenkinsfile`) |
+| Job transform (`build_bronze/silver/gold`) fail `Access Denied` khi đọc/ghi MinIO, dù catalog tạo bảng bình thường | Lakekeeper dùng remote signing và trả `s3.signer.uri` là `http://localhost:8181/catalog/`; trong container job, `localhost` không phải Lakekeeper nên chữ ký S3 không lấy được | Đặt `LAKEKEEPER__BASE_URI=http://lakekeeper:8181/` trong `infra/iceberg-catalog/catalog.env`, rồi `docker compose up -d --force-recreate lakekeeper`. Kiểm tra: `curl.exe -s http://localhost:8181/catalog/v1/<warehouse-id>/namespaces/silver/tables/products` phải có `"s3.signer.uri":"http://lakekeeper:8181/catalog/"` (đã xác nhận với Lakekeeper v0.12.1) |
 
 ## Reset hoàn toàn (cold start)
 
