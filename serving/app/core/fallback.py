@@ -49,6 +49,27 @@ def build_item_metadata(row: dict) -> dict[str, str | None]:
     }
 
 
+def search_items(
+    active_items: list[str], metadata_by_id: dict[str, dict[str, str | None]], query: str, limit: int
+) -> list[str]:
+    """Pure step (unit-testable without Iceberg): every whitespace-separated
+    token of `query` must appear (case-insensitive) in the product's title or
+    category/price text. `active_items` is already popularity-ordered, so
+    results keep that order — the most popular match comes first."""
+    tokens = query.lower().split()
+    if not tokens:
+        return []
+    matches: list[str] = []
+    for product_id in active_items:
+        meta = metadata_by_id.get(product_id) or {}
+        haystack = f"{meta.get('title') or ''} {meta.get('description') or ''}".lower()
+        if all(token in haystack for token in tokens):
+            matches.append(product_id)
+            if len(matches) >= limit:
+                break
+    return matches
+
+
 class FallbackCatalog:
     def __init__(self, refresh_interval_seconds: int, top_n: int) -> None:
         self._refresh_interval_seconds = refresh_interval_seconds
@@ -69,6 +90,9 @@ class FallbackCatalog:
         """`title`/`description`/`image_url`, đã nạp cùng lúc với
         `_load_once()` — không query Iceberg riêng cho từng request."""
         return self._metadata_by_id.get(product_id, {"title": None, "description": None, "image_url": None})
+
+    def search(self, query: str, limit: int) -> list[str]:
+        return search_items(self._active_items, self._metadata_by_id, query, limit)
 
     def _load_once(self) -> None:
         catalog = get_catalog()

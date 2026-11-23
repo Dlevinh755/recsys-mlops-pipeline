@@ -145,6 +145,13 @@ phản ánh đúng những gì model "nhìn thấy". Không cache, lỗi nguồn
 thay vì 5xx. Dữ liệu Amazon seed là `rating` chứ không phải `purchase`, nên
 panel gọi là "lịch sử tương tác".
 
+Ô **tìm sản phẩm** (đầu cột lưới của UI): `GET /products/search?q=&limit=`
+(`api/search.py`) tìm trong toàn bộ catalog mà `FallbackCatalog` đã nạp sẵn
+từ `gold.item_features` (không query Iceberg khi có request, không ngoại lệ
+kiến trúc mới). Mọi từ khoá phải xuất hiện (không phân biệt hoa thường)
+trong tên hoặc chuỗi danh mục/giá; kết quả sắp theo độ phổ biến, `score`
+luôn 0.0 nên UI không vẽ thanh điểm. Không có kết quả → danh sách rỗng, không 4xx.
+
 ## 3. Khác biệt so với đề xuất ban đầu
 
 | Đề xuất gốc | Thực tế triển khai | Đánh giá |
@@ -222,6 +229,7 @@ Số liệu phụ (tham khảo): `similar_items` job xử lý 1565/1565 item;
 | `serving/app/api/homepage.py` | `GET /recommend/homepage` | 3 nhánh: cache/model/fallback |
 | `serving/app/api/similar.py` | `GET /recommend/similar` | Đọc thẳng `similar_items:{id}` |
 | `serving/app/api/interact.py` | `POST /interact` | Ghi (A) Redis + (B) source-db, invalidate cache |
+| `serving/app/api/search.py` | `GET /products/search` | `limit` 1-50, mặc định 12; test: `serving/tests/test_search.py` |
 | `serving/app/schemas/models.py` | Pydantic request/response | Validator khớp CHECK constraint `interactions` |
 | `serving/tests/test_ranking_merge.py` | Unit test `merge_sequence`/`to_indices`/`boost` | Hàm thuần, không cần infra |
 | `serving/tests/test_fallback_selection.py` | Unit test `rank_items_by_popularity` | Hàm thuần |

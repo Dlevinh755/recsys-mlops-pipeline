@@ -12,7 +12,7 @@ import redis
 from fastapi import FastAPI, Request
 from feast import FeatureStore
 
-from serving.app.api import history, homepage, interact, similar, users
+from serving.app.api import history, homepage, interact, search, similar, users
 from serving.app.core.config import load_settings
 from serving.app.core.fallback import FallbackCatalog
 from serving.app.core.metrics import instrument
@@ -51,6 +51,7 @@ app.include_router(similar.router)
 app.include_router(interact.router)
 app.include_router(users.router)
 app.include_router(history.router)
+app.include_router(search.router)
 
 
 @app.get("/health")

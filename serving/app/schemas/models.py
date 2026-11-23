@@ -17,6 +17,11 @@ class HomepageResponse(BaseModel):
     source: str  # "model" | "fallback"
 
 
+class SearchResponse(BaseModel):
+    query: str
+    items: list[RecommendedItem]  # `score` luôn 0.0: kết quả sắp theo độ phổ biến, không phải điểm model
+
+
 class SimilarResponse(BaseModel):
     item_id: str
     items: list[str]
