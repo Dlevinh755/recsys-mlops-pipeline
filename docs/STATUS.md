@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-25 (cổng promote, vòng lặp drift → retrain, đa ứng viên — ADR 0013–0015; Jenkins build #12 — ADR 0011)
+Cập nhật lần cuối: 2026-11-25 (cổng promote, vòng lặp drift → retrain, đa ứng viên — ADR 0013–0015; Jenkins build #13 — ADR 0011)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -17,17 +17,23 @@ Cập nhật lần cuối: 2026-11-25 (cổng promote, vòng lặp drift → ret
 | 7 | Monitoring (Prometheus/Grafana + Evidently) | ✅ Hoàn thành | [phase-7-monitoring.md](modules/phase-7-monitoring.md) |
 | 8 | CI/CD, test, tài liệu, đóng gói `libs/` | ✅ Hoàn thành | [phase-8-cicd.md](modules/phase-8-cicd.md) |
 | 9 | ~~Sequence Model (mở rộng, tùy chọn)~~ — gộp vào Phase 4 theo ADR 0004 | ⬜ N/A | — |
-| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; 8 dòng fixture: đã rõ nguyên nhân (7.3) | [phase-10-agf.md](modules/phase-10-agf.md) |
+| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | ✅ Đã chạy thật end-to-end (2026-11-19) và qua Jenkins (build #13): 49 unit + 5 model smoke test pass; cổng promote cùng split, vòng drift → retrain, đa ứng viên (ADR 0013–0015); 8 dòng fixture: đã rõ nguyên nhân (7.3) | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
+
+**2026-11-24 — Jenkins build #13 (commit `552b6ab`):** xanh, ~11 phút, tự chạy nhờ
+`pollSCM`; lint, 49 + 15 unit test, 23 integration, 5 test baseline trên MinIO, skew,
+5 model smoke đều pass, và **cả 8 image đã lên Docker Hub tag `552b6ab`** (lỗi mạng của
+build #12 không lặp lại). `catchError` đã là `UNSTABLE` nhưng nhánh lỗi chưa bị kích
+hoạt, nên chưa thấy build vàng.
 
 **2026-11-24 — Jenkins build #12 (commit `86591f8`, ADR 0013–0015):** push 13 commit
 (giai đoạn A, B, F của `side_doc/SPEC-retrain-loop-and-promote-gate.md`); `pollSCM` tự
 chạy, ~16 phút. Mọi test mới pass trên Jenkins (49 + 15 unit, 23 integration, 5 test
 baseline trên MinIO, 5 model smoke). `Build & Push` đẩy 7/8 image (`transform` timeout
 proxy tới Docker Hub) mà build vẫn xanh; đã đổi `catchError` sang `UNSTABLE` (chưa chạy
-lại). Image `transform:86591f8` chưa có trên Docker Hub cho tới khi chạy lại build hoặc
-push tay.
+lại). Image `transform:86591f8` không có trên Docker Hub; tag `552b6ab` của build #13
+đã đủ bộ nên không cần bù.
 
 **2026-11-24 — Sửa Jenkins đợt 2 (ADR 0011 mục 5–7), đã push, build #10 và #11 xanh (6,8 phút khi cache ấm):** `Build & Push`
 chỉ tag lại image tag SHA đã test (trước đó push nhầm bản cũ cho 3 image),
@@ -69,8 +75,8 @@ similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_1
 0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
 `model_card.md`. **2026-11-24**: Airflow (`dag_transform`, `dag_training`) và monitoring
 (Prometheus/Grafana, `dag_monitoring`) đã chạy với model mới — `phase-10-agf.md`
-mục 7.4. **Việc còn lại**: demo drift thật bằng lô dữ liệu khác phân phối
-qua `dag_monitoring`.
+mục 7.4. **2026-11-24 (muộn)**: đã demo drift thật bằng lô `incoming/` và chạy khép
+kín drift → retrain → promote (v8) — `phase-10-agf.md` mục 7.5–7.7.
 
 
 **Toàn bộ MVP1 (Phase 0–8) đã hoàn thành.** Không còn phase nào "kế tiếp"
@@ -106,8 +112,9 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
 3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
    (AGF + baseline popularity log cùng run); số đo thật trên Video_Games:
    `val_ndcg_at_10` 0,0913–0,0920 so với Pop 0,0444 (`model_card.md`).
-   `test.parquet`/`incoming/` vẫn chưa nạp.
-4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
+   `incoming/` đã nạp 2026-11-24 (Silver 18.456 dòng); `test.parquet` dùng cho demo drift
+   thì chưa cần.
+4. ~~Vòng lặp drift → retrain chưa khép kín~~ — đã khép (ADR 0013–0015). Trước đó: mọi DAG `schedule=None`,
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
    "mua" (chưa có impression/click để tính online metric). Spec:
    `side_doc/SPEC-retrain-loop-and-promote-gate.md`. **Phần A và B đã làm

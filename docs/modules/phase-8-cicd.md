@@ -174,8 +174,9 @@ implement, không đổi quyết định kiến trúc nào.
   `Build & Push Images` đẩy 7/8 image; `transform` lỗi
   `proxyconnect tcp: dial tcp 192.168.65.1:3128: i/o timeout` (mạng Docker Desktop,
   không phải code) nhưng build vẫn báo SUCCESS vì `catchError(buildResult: 'SUCCESS')`
-  — đã đổi sang `UNSTABLE`. Giá trị mới và việc chạy lại push `transform` chưa kiểm
-  chứng.
+  — đã đổi sang `UNSTABLE`. **Build #13** (commit `552b6ab`, ~11 phút): xanh, 8/8
+  image lên Docker Hub tag `552b6ab`, Jenkinsfile mới chạy bình thường; nhánh lỗi
+  (build vàng) chưa bị kích hoạt nên chưa quan sát.
 - **Chưa kiểm tra**: image đẩy lên Docker Hub có đang để public hay private
   (mặc định repo Docker Hub mới là public) — việc tùy chọn của người dùng.
 - ~~Airflow chưa dùng image tag SHA~~ — lỗi thời: `JobDockerOperator` đọc tên

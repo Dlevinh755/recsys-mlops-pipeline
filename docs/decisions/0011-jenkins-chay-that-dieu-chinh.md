@@ -100,6 +100,10 @@ Các phương án đã loại:
   `DOCKERHUB_TOKEN`, thay vì xanh. Chưa chạy thật với giá trị mới và chưa qua lại
   Jenkins linter (cần đăng nhập); thay đổi chỉ là một giá trị hợp lệ của
   `buildResult`.
+- **Build #13** (commit `552b6ab`, ~11 phút, tự chạy nhờ `pollSCM`): xanh, test như
+  build #12 đều pass, **8/8 image lên Docker Hub tag `552b6ab`**; Jenkins đọc và chạy
+  Jenkinsfile với `UNSTABLE` bình thường. Nhánh lỗi chưa bị kích hoạt (không có push
+  nào lỗi), nên hành vi "build vàng" chưa được thấy tận mắt.
 - Image Airflow vẫn được build 3 lần (3 service cùng Dockerfile, tên giống
   nhau); với BuildKit lần 2–3 là cache hit nên chưa xử lý riêng.
 
