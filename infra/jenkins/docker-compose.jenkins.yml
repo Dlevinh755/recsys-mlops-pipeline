@@ -37,6 +37,10 @@ services:
       # Sibling-container pattern (same as Airflow, Phase 6) — Jenkins has
       # no Docker daemon of its own, it talks to the host's.
       - /var/run/docker.sock:/var/run/docker.sock
+      # Workspace trùng đường dẫn giữa Jenkins và daemon của host, để bind
+      # mount tương đối trong docker-compose.yml chạy từ pipeline trỏ đúng
+      # file (xem comment ở đầu Jenkinsfile).
+      - /srv/jenkins-ws:/srv/jenkins-ws
     restart: unless-stopped
 
 volumes:

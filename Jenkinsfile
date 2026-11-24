@@ -12,7 +12,20 @@
 // daemon (sibling-container pattern, same as Airflow's DockerOperator,
 // Phase 6).
 pipeline {
-    agent any
+    // Workspace cố định tại đường dẫn trùng nhau giữa container Jenkins và Docker
+    // của máy host (infra/jenkins/docker-compose.jenkins.yml mount
+    // /srv/jenkins-ws:/srv/jenkins-ws). Bắt buộc: mọi bind mount tương đối
+    // trong docker-compose.yml (./infra/..., ./airflow/...) và `-v $(pwd)`
+    // do daemon của host phân giải; đường dẫn mặc định trong
+    // /var/jenkins_home không tồn tại ở đó nên Docker tạo thư mục rỗng
+    // (minio-init exit 126). Chỉ một workspace cố định: build nhiều nhánh
+    // song song sẽ dùng chung thư mục này.
+    agent {
+        node {
+            label ''
+            customWorkspace '/srv/jenkins-ws/recsys-mlops'
+        }
+    }
 
     options {
         // Two builds of the *same* branch shouldn't race each other over
