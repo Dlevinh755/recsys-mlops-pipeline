@@ -298,6 +298,11 @@ services:
       MONITORING_S3_REGION: ${MINIO_REGION:-us-east-1}
       MONITORING_BASELINE_BUCKET: ${MONITORING_BASELINE_BUCKET:-monitoring-baseline}
       MONITORING_REPORTS_BUCKET: ${MONITORING_REPORTS_BUCKET:-monitoring-reports}
+      # ADR 0014 — jobs.monitoring.retrain_decision policy.
+      RETRAIN_MIN_NEW_ROWS: ${RETRAIN_MIN_NEW_ROWS:-200}
+      RETRAIN_NEW_ROWS_RATIO: ${RETRAIN_NEW_ROWS_RATIO:-0.20}
+      RETRAIN_MAX_MODEL_AGE_DAYS: ${RETRAIN_MAX_MODEL_AGE_DAYS:-14}
+      RETRAIN_COOLDOWN_HOURS: ${RETRAIN_COOLDOWN_HOURS:-24}
     depends_on:
       catalog-bootstrap:
         condition: service_completed_successfully

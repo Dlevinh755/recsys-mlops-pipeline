@@ -7,6 +7,10 @@ host `amazone_data/` path directly: this job runs inside `monitoring-job`
 (containerized, triggered by Airflow), which has no access to host files —
 only `scripts/*.py` run directly on the host do (see
 `scripts/upload_monitoring_baseline.py`, run once to seed this bucket).
+Since ADR 0014 the baseline follows the production model: `current.parquet`
+(written by `refresh_baseline.py`) when it exists, else `train.parquet`
+(`baseline.py`). The saved JSON gains a `reco_summary` key (dataset_drift,
+drifted columns, row counts) that `retrain_decision.py` reads.
 
 Compared columns: `rating` (present verbatim in both datasets) and the
 derived boolean `is_cold_start_item` (`product_id` absent from the
@@ -20,34 +24,21 @@ from __future__ import annotations
 import json
 
 import pandas as pd
-import s3fs
 from evidently.metric_preset import DataDriftPreset
 from evidently.report import Report
 
+from jobs.monitoring.baseline import baseline_filesystem
+from jobs.monitoring.baseline import load_baseline as load_baseline_from
 from jobs.monitoring.report_sink import save_report
 from jobs.transform.iceberg_writer import get_or_create_table
 from reco_mlops_libs.common.env import require_env
 from reco_mlops_libs.iceberg.catalog import get_catalog
 from reco_mlops_libs.iceberg.schema_contracts import silver_interactions
 
-BASELINE_KEY = "train.parquet"
 
-
-def _baseline_filesystem() -> s3fs.S3FileSystem:
-    endpoint = require_env("MONITORING_S3_ENDPOINT")
-    return s3fs.S3FileSystem(
-        key=require_env("MONITORING_S3_ACCESS_KEY"),
-        secret=require_env("MONITORING_S3_SECRET_KEY"),
-        client_kwargs={"endpoint_url": endpoint},
-        use_ssl=endpoint.startswith("https://"),
-    )
-
-
-def load_baseline() -> pd.DataFrame:
-    bucket = require_env("MONITORING_BASELINE_BUCKET")
-    fs = _baseline_filesystem()
-    with fs.open(f"{bucket}/{BASELINE_KEY}", "rb") as file:
-        return pd.read_parquet(file, columns=["parent_asin", "rating"])
+def load_baseline() -> tuple[pd.DataFrame, dict]:
+    """`(frame, info)` — see `jobs.monitoring.baseline.load_baseline`."""
+    return load_baseline_from(baseline_filesystem(), require_env("MONITORING_BASELINE_BUCKET"))
 
 
 def load_current() -> pd.DataFrame:
@@ -69,8 +60,33 @@ def build_comparison_frames(baseline: pd.DataFrame, current: pd.DataFrame) -> tu
     return reference, current_frame
 
 
+def extract_drift_summary(report_dict: dict) -> dict:
+    """Pure: `report.as_dict()` of a `DataDriftPreset` run → the facts
+    `retrain_decision` needs. Evidently's `DatasetDriftMetric` carries the
+    dataset-level verdict, `DataDriftTable` the per-column scores."""
+    summary: dict = {"dataset_drift": None, "share_of_drifted_columns": None, "drifted_columns": [],
+                     "column_scores": {}}
+    for metric in report_dict.get("metrics", []):
+        result = metric.get("result", {})
+        if metric.get("metric") == "DatasetDriftMetric":
+            summary["dataset_drift"] = bool(result["dataset_drift"])
+            summary["share_of_drifted_columns"] = float(result["share_of_drifted_columns"])
+        elif metric.get("metric") == "DataDriftTable":
+            for column, detail in result.get("drift_by_columns", {}).items():
+                summary["column_scores"][column] = {
+                    "drift_score": float(detail["drift_score"]),
+                    "drift_detected": bool(detail["drift_detected"]),
+                    "stattest": detail.get("stattest_name"),
+                }
+                if detail["drift_detected"]:
+                    summary["drifted_columns"].append(column)
+    if summary["dataset_drift"] is None:
+        raise RuntimeError("Evidently report has no DatasetDriftMetric — preset changed?")
+    return summary
+
+
 def main() -> int:
-    baseline = load_baseline()
+    baseline, baseline_info = load_baseline()
     current = load_current()
     reference, current_frame = build_comparison_frames(baseline, current)
 
@@ -78,14 +94,18 @@ def main() -> int:
     report.run(reference_data=reference, current_data=current_frame)
 
     cold_start_ratio = float(current_frame["is_cold_start_item"].mean())
-    paths = save_report("data_drift", html=report.get_html(), data=report.as_dict())
-
+    drift = extract_drift_summary(report.as_dict())
     summary = {
+        "baseline_source": baseline_info["source"],
+        "baseline_model_version": baseline_info.get("model_version"),
         "baseline_rows": len(reference),
         "current_rows": len(current_frame),
         "current_cold_start_ratio": round(cold_start_ratio, 4),
-        "report_paths": paths,
+        **drift,
     }
+    # `reco_summary` is additive: the rest of the file stays Evidently's own dict.
+    paths = save_report("data_drift", html=report.get_html(), data={**report.as_dict(), "reco_summary": summary})
+    summary["report_paths"] = paths
     print(json.dumps({"data_drift_result": summary}))
     return 0
 
