@@ -89,8 +89,9 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
 2. ~~CI/CD chưa chạy thật qua Jenkins~~ — đã chạy xanh 2026-11-24 (ADR 0011);
    `GIT_SHA` đã xác nhận. `pollSCM` đã xác nhận bằng build #8 (tự chạy, xanh).
 3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
-   (AGF + baseline popularity log cùng run); chưa có số đo thật trên Cell
-   Phones. `test.parquet`/`incoming/` vẫn chưa nạp.
+   (AGF + baseline popularity log cùng run); số đo thật trên Video_Games:
+   `val_ndcg_at_10` 0,0913–0,0920 so với Pop 0,0444 (`model_card.md`).
+   `test.parquet`/`incoming/` vẫn chưa nạp.
 4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
    "mua" (chưa có impression/click để tính online metric).
