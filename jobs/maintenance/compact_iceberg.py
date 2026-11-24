@@ -3,10 +3,12 @@
 
 Only Bronze needs this: it is the sole append-only table (every Phase 1
 extract run adds a new data file, see `jobs/transform/build_bronze.py`), so
-its small-file count grows without bound over time. Silver/Gold already
-`overwrite()` their entire content every run (`jobs/transform/build_silver.py`
-/`build_gold.py`) — each run already produces a small, fresh set of files,
-so there is nothing to compact there.
+its small-file count grows without bound over time. Gold `overwrite()`s its
+entire content every run (`jobs/transform/build_gold.py`), so there is nothing
+to compact there. Silver is NOT in that group any more: since ADR 0010 it is
+an incremental upsert, so each run with new data adds small files. Silver is
+deliberately not compacted here yet (file growth not measured) — see
+`docs/modules/phase-2-lakehouse.md` mục 2.9.
 
 `pyiceberg==0.12.0` (pinned in `libs/pyproject.toml`) exposes
 `table.maintenance` but that only wraps `expire_snapshots` in this version
