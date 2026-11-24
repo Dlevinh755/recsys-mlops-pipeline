@@ -60,10 +60,16 @@ def test_s3fs_does_not_replace_client_when_http_session_closed(table):
     fs = io.get_fs("s3")
     original_client = fs._s3
     http_session = original_client._endpoint.http_session
-    for session in list((http_session._sessions or {}).values()):
-        sync(fs.loop, session.close)
+    try:
+        for session in list((http_session._sessions or {}).values()):
+            sync(fs.loop, session.close)
 
-    # s3fs >= 2026.2.0 rebuilds the client here, dropping the
-    # `before-sign.s3` hook -> later requests are unsigned -> MinIO 403.
-    sync(fs.loop, fs.set_session)
-    assert fs._s3 is original_client
+        # s3fs >= 2026.2.0 rebuilds the client here, dropping the
+        # `before-sign.s3` hook -> later requests are unsigned -> MinIO 403.
+        sync(fs.loop, fs.set_session)
+        assert fs._s3 is original_client
+    finally:
+        # We just closed this filesystem's HTTP sessions on purpose. fsspec
+        # caches S3FileSystem instances per process, so drop the cache or
+        # every later test in the same run would reuse the closed one.
+        type(fs).clear_instance_cache()
