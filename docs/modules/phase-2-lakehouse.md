@@ -69,7 +69,10 @@ Input là `pandas.DataFrame` (không phải Polars) — xem mục 3 để biết
 - `cast_to_table_schema()` — ép kiểu/thứ tự cột Arrow khớp đúng schema hiện
   tại của bảng Iceberg trước khi ghi.
 - `append()` / `overwrite()` — Bronze dùng `append` (append-only, giữ lịch
-  sử); Silver/Gold dùng `overwrite` (tính lại toàn bộ mỗi lần chạy).
+  sử); Gold dùng `overwrite` (tính lại toàn bộ mỗi lần chạy). Silver từ
+  2026-11-24 dùng `upsert_with_watermark()` / `overwrite_with_watermark()`
+  (watermark trong table properties, cùng transaction với dữ liệu) — xem mục
+  2.9 và ADR 0010.
 
 ### 2.5 `build_bronze.py` — idempotency không cần bảng bookkeeping thứ hai
 
@@ -120,7 +123,9 @@ DuckDB (`con.register(...)`), chạy file `.sql` tương ứng
 (`sql/silver/*.sql`, `sql/gold/*.sql`), lấy kết quả bằng
 `con.execute(query).to_arrow_table()` (API `.arrow()` ở DuckDB 1.5.x trả về
 `RecordBatchReader` chứ không phải `Table` — đã gặp lỗi này và sửa trong lúc
-triển khai), validate, rồi `overwrite()` vào Silver/Gold.
+triển khai), validate, rồi ghi vào Silver/Gold. Gold dùng `overwrite()`; Silver
+ban đầu cũng `overwrite()`, nay ghi tăng dần (mục 2.9). Đọc "toàn bộ Bronze"
+ở đoạn này chỉ còn đúng cho chế độ `full` của Silver và cho Gold.
 
 - `sql/silver/silver_products.sql`, `sql/silver/silver_interactions.sql` —
   dedup bằng `ROW_NUMBER() OVER (PARTITION BY <pk> ORDER BY updated_at DESC,
@@ -129,9 +134,10 @@ triển khai), validate, rồi `overwrite()` vào Silver/Gold.
   `product_id`, đếm theo `event_type`, tính `avg_rating`, `distinct_users`,
   `last_interaction_at`.
 
-Silver/Gold được **tính lại toàn bộ mỗi lần chạy** (không merge tăng dần) —
+Gold được **tính lại toàn bộ mỗi lần chạy** (không merge tăng dần) —
 chấp nhận được ở quy mô dữ liệu MVP; đây là giới hạn đã biết trước (xem mục
-6), không phải sơ suất.
+6), không phải sơ suất. Silver ban đầu cũng vậy, đã đổi sang tăng dần ngày
+2026-11-24 (mục 2.9, ADR 0010).
 
 Per-user features (`gold.user_features`) **không** làm ở phase này — đúng
 theo `de-xuat-trien-khai.md`, đây là việc của `jobs/features/` ở Phase 3.
@@ -155,6 +161,36 @@ theo `de-xuat-trien-khai.md`, đây là việc của `jobs/features/` ở Phase 
   được qua DuckDB": lấy `metadata_location` hiện tại của bảng qua PyIceberg,
   rồi dùng `iceberg_scan()` của DuckDB đọc thẳng metadata.json trên MinIO —
   không cần DuckDB nói chuyện với REST Catalog.
+
+### 2.9 Silver tăng dần (2026-11-24, ADR 0010)
+
+`build_silver.py` giờ chỉ xử lý phần Bronze mới và upsert vào Silver. Đã làm:
+
+- **Watermark** `reco.silver.watermark_ingested_at` (= max `_ingested_at` đã xử
+  lý) nằm trong table properties của từng bảng Silver; `iceberg_writer.py`
+  thêm `read_watermark()`, `format_watermark()`, `upsert_with_watermark()`,
+  `overwrite_with_watermark()`. Dữ liệu và watermark commit trong một
+  transaction (`table.transaction()`), nên lỗi giữa chừng không làm lệch.
+- **Hai chế độ** (`sync_silver_table()`): `full` khi chưa có watermark hoặc có
+  `--full-refresh` (đọc toàn bộ Bronze, `overwrite`, đặt watermark);
+  `incremental` còn lại: `scan(row_filter="_ingested_at > '<wm>'")`, dedup bằng
+  SQL cũ (không đổi) trên delta, `_drop_stale()` bỏ dòng có `updated_at` ≤ bản
+  Silver cùng khoá (đọc Silver bằng `In` filter), rồi `tx.upsert`.
+- Không có dòng Bronze mới → không commit; delta chỉ toàn dòng cũ → chỉ đổi
+  watermark.
+- Đầu ra mỗi bảng có thêm `mode`, `bronze_rows_scanned`, `rows_inserted`,
+  `rows_updated`, `rows_upserted`, `rows_skipped_stale`, `watermark_before/after`
+  (`source_rows` cũ được thay bằng `bronze_rows_scanned`; `rows_after_dedup`
+  giữ, nghĩa là số dòng thực sự đưa vào Silver).
+
+Kết quả chạy thật trên dữ liệu hiện có (Video_Games): lần 1 (chưa có watermark)
+`full`, 687 sản phẩm / 14.768 tương tác; lần 2 ngay sau đó `incremental` 0 dòng,
+số snapshot không tăng (11 → 11); sau khi `POST /interact` 1 dòng rồi
+`dag_ingest` → `dag_transform`: Bronze quét đúng 1 dòng, Silver 14.768 → 14.769,
+snapshot +1; `dag_transform` xanh cả 3 ô; chạy `--full-refresh` cho digest nội
+dung Silver giống hệt kết quả incremental.
+
+Gold không đổi (vẫn tính lại toàn bộ từ Silver).
 
 ### 2.8 Test tích hợp (`tests/integration/test_iceberg_writer.py`)
 
@@ -342,8 +378,9 @@ Chạy thật trên `docker compose` (Lakekeeper + MinIO + Postgres), không moc
 
 ## 6. Việc còn để lại cho phase sau
 
-- **Silver/Gold tính lại toàn bộ mỗi lần chạy** (`overwrite`, không merge
-  tăng dần) — chấp nhận được ở quy mô MVP nhưng sẽ chậm dần khi Bronze lớn
+- ~~**Silver** tính lại toàn bộ mỗi lần chạy~~ — đã làm tăng dần ngày
+  2026-11-24 (mục 2.9, ADR 0010). **Gold vẫn tính lại toàn bộ mỗi lần chạy**
+  (`overwrite`, không merge tăng dần) — chấp nhận được ở quy mô MVP nhưng sẽ chậm dần khi Bronze lớn
   lên. Đúng như báo cáo kỹ thuật mục 11 đã ghi nhận giới hạn của DuckDB khi
   dữ liệu lớn hơn nhiều so với MVP; hướng khắc phục (merge tăng dần hoặc
   chuyển engine) không cần thiết trong phạm vi khóa luận này.
@@ -379,9 +416,9 @@ Chạy thật trên `docker compose` (Lakekeeper + MinIO + Postgres), không moc
 
 | Đường dẫn | Vai trò | Config/setting đáng chú ý |
 |---|---|---|
-| `jobs/transform/iceberg_writer.py` | Helper commit PyIceberg dùng chung: `get_or_create_table`, `committed_run_ids`, `cast_to_arrow_schema`, `cast_to_table_schema`, `append`, `overwrite`, `fill_missing_optional_columns` | `committed_run_ids()` đọc trực tiếp cột `_extraction_run_id` từ Iceberg — giá trị nay là dlt `_dlt_load_id` (2026-09-27, mục 4.3/ADR 0006), không phải Postgres run_id; `cast_to_arrow_schema()` thêm 2026-09-13 (mục 4.2) để chuẩn hoá schema nhiều batch trước khi `concat_tables` |
+| `jobs/transform/iceberg_writer.py` | Helper commit PyIceberg dùng chung: `get_or_create_table`, `committed_run_ids`, `cast_to_arrow_schema`, `cast_to_table_schema`, `append`, `overwrite`, `fill_missing_optional_columns`; thêm 2026-11-24: `read_watermark`, `format_watermark`, `upsert_with_watermark`, `overwrite_with_watermark` (Silver incremental) | `committed_run_ids()` đọc trực tiếp cột `_extraction_run_id` từ Iceberg — giá trị nay là dlt `_dlt_load_id` (2026-09-27, mục 4.3/ADR 0006), không phải Postgres run_id; `cast_to_arrow_schema()` thêm 2026-09-13 (mục 4.2) để chuẩn hoá schema nhiều batch trước khi `concat_tables` |
 | `jobs/transform/build_bronze.py` | Đọc toàn bộ dataset Parquet trên MinIO (`extract-staging/staging/<source>`), lọc theo `_dlt_load_id` chưa commit, validate, `append()` vào `bronze.products`/`bronze.interactions` | Viết lại 2026-09-27 (mục 4.3/ADR 0006): bỏ hẳn Postgres/`PendingRun`/`skipped_missing_output`; đọc env `EXTRACT_S3_*` (không còn `SOURCE_DB_DSN`) |
-| `jobs/transform/build_silver.py` | Dedup Bronze → Silver qua SQL DuckDB, `overwrite()` toàn bộ mỗi lần chạy | Chạy `sql/silver/*.sql` |
+| `jobs/transform/build_silver.py` | Dedup Bronze → Silver qua SQL DuckDB, tăng dần theo watermark rồi upsert (từ 2026-11-24, ADR 0010); `--full-refresh` tính lại toàn bộ | Chạy `sql/silver/*.sql`; watermark `reco.silver.watermark_ingested_at` |
 | `jobs/transform/build_gold.py` | Aggregate Silver → `gold.item_features` qua SQL DuckDB | Chạy `sql/gold/gold_item_features.sql` |
 
 ### SQL & test & script
@@ -390,6 +427,7 @@ Chạy thật trên `docker compose` (Lakekeeper + MinIO + Postgres), không moc
 |---|---|---|
 | `sql/silver/silver_products.sql`, `silver_interactions.sql` | Dedup bằng `ROW_NUMBER() OVER (PARTITION BY <pk> ORDER BY updated_at DESC)` | SQL thuần, không đặc thù DuckDB |
 | `sql/gold/gold_item_features.sql` | `LEFT JOIN` interactions theo `product_id`, đếm/aggregate theo `event_type` | — |
+| `tests/integration/test_silver_incremental.py` | 11 test Silver tăng dần (lần đầu, không dữ liệu mới, chỉ dòng mới, dòng sửa, dòng cũ, trùng khoá trong delta, tương đương `--full-refresh`, rating NULL, upsert lỗi không đổi watermark, `silver.products`) | Bảng `*.it_test_si_*` riêng, tự dọn dẹp |
 | `tests/integration/test_iceberg_writer.py` | Test PyIceberg commit thật (append/overwrite/idempotent/validator) trên bảng `*.it_test_*` riêng | Chạy bằng `make test-integration`; tự dọn dẹp sau mỗi test |
 | `scripts/duckdb_query_iceberg.py` | Query ad-hoc 1 bảng Iceberg qua DuckDB (`iceberg_scan` trên metadata.json) | Đối số: `<namespace.table> [sql]`; cần biến `ICEBERG_S3_*` |
 
