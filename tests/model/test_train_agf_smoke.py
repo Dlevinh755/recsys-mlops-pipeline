@@ -108,5 +108,68 @@ class AGFModelSmokeTest(unittest.TestCase):
             run.data.metrics["champion_test_ndcg_at_10_same_split"], first["test_ndcg_at_10"], places=4)
 
 
+    def test_several_candidates_make_one_run_each_and_register_only_the_winner(self) -> None:
+        """ADR 0015: 3 candidates on the same split → 3 runs of one group, exactly 1
+        registered version (the selected one), `selected_from` on the winner's run only."""
+        import mlflow
+
+        from jobs.training.train_agf import CONFIG_PATH, run_training
+        from reco_mlops_libs.ranking.agf.trainer import MethodConfig
+        from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME
+
+        mlflow.set_tracking_uri(f"file://{tempfile.mkdtemp(prefix='mlops4rec-agf-candidates-')}")
+        cfg = replace(MethodConfig.from_yaml(CONFIG_PATH), use_text=False, epochs=2, batch_size=64)
+        item_rows, user_rows = load_sample_rows()
+        ids = ["gru4rec", "sasrec", "gru4rec_sum"]
+
+        result = run_training(item_rows, user_rows, cfg, seed=2023, register=True, candidates=ids)
+
+        client = mlflow.MlflowClient()
+        experiment = client.get_experiment_by_name(REGISTERED_MODEL_NAME)
+        runs = client.search_runs([experiment.experiment_id])
+        self.assertEqual(sorted(r.data.tags["candidate_id"] for r in runs), sorted(ids))
+        self.assertEqual(len({r.data.tags["candidate_group"] for r in runs}), 1)
+        # same split: every candidate validated on the same samples
+        self.assertEqual({r.data.params["val_samples"] for r in runs}, {runs[0].data.params["val_samples"]})
+        self.assertEqual({r.data.params["cfg_backbone"] for r in runs}, {"gru4rec", "sasrec"})
+        self.assertEqual({r.data.tags["model_type"] for r in runs}, {"agf-gru4rec", "agf-sasrec"})
+
+        versions = client.search_model_versions(f"name='{REGISTERED_MODEL_NAME}'")
+        self.assertEqual(len(versions), 1)
+        winner = next(r for r in runs if r.info.run_id == result["run_id"])
+        self.assertEqual(versions[0].run_id, winner.info.run_id)
+        self.assertEqual(winner.data.tags["candidate_id"], result["selected_candidate"])
+        self.assertEqual(winner.data.tags["candidate_selected"], "true")
+        self.assertEqual(winner.data.params["selected_from"], ",".join(ids))
+        self.assertEqual(winner.data.params["selection_rule"], "paired_1se_vs_default")
+        for candidate_id in ids:
+            self.assertIn(f"candidate_{candidate_id}_val_ndcg_at_10", winner.data.metrics)
+        self.assertIn("selection_margin_se", winner.data.metrics)
+        for run in runs:
+            if run is not winner:
+                self.assertEqual(run.data.tags["candidate_selected"], "false")
+                self.assertNotIn("selected_from", run.data.params)
+        # the per-candidate score logged on the winner is the candidate's own val_ndcg_at_10
+        for run in runs:
+            self.assertAlmostEqual(winner.data.metrics[f"candidate_{run.data.tags['candidate_id']}_val_ndcg_at_10"],
+                                   run.data.metrics["val_ndcg_at_10"], places=6)
+
+    def test_default_single_candidate_is_unchanged(self) -> None:
+        import mlflow
+
+        from jobs.training.train_agf import CONFIG_PATH, run_training
+        from reco_mlops_libs.ranking.agf.trainer import MethodConfig
+
+        mlflow.set_tracking_uri(f"file://{tempfile.mkdtemp(prefix='mlops4rec-agf-single-')}")
+        cfg = replace(MethodConfig.from_yaml(CONFIG_PATH), use_text=False, epochs=2, batch_size=64)
+        item_rows, user_rows = load_sample_rows()
+        result = run_training(item_rows, user_rows, cfg, seed=2023, register=False)
+        run = mlflow.MlflowClient().get_run(result["run_id"])
+        self.assertEqual(run.data.tags["candidate_id"], "gru4rec")
+        self.assertEqual(run.data.tags["model_type"], "agf-gru4rec")
+        self.assertNotIn("selected_from", run.data.params)
+        self.assertNotIn("selection", result)
+
+
 if __name__ == "__main__":
     unittest.main()

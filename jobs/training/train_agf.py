@@ -21,6 +21,11 @@ comes unchanged from the experiment repo (`libs/.../ranking/agf/`,
    precomputed item table `agf/item_table.npy` that serving scores with, and
    `item_vocab.json` (`product_id -> index`, same format as before).
 
+ADR 0015: `--candidates gru4rec,sasrec,gru4rec_sum` (env `TRAIN_CANDIDATES`)
+trains several AGF variants on the same split, one MLflow run each, picks one
+on validation (`candidates.py`) and registers only that one. Default
+`gru4rec` = the base config, a single run, exactly as before.
+
 CPU by default (`bao-cao-ky-thuat.md` 7.6 — ~1.5k items, ~16k interactions).
 """
 
@@ -28,8 +33,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import tempfile
-from dataclasses import asdict, replace
+import uuid
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import mlflow
@@ -45,6 +52,13 @@ from jobs.training.agf_inputs import (
     interactions_from_sequences,
 )
 from jobs.training.baselines import popularity_metrics
+from jobs.training.candidates import (
+    CANDIDATE_OVERRIDES,
+    Scored,
+    ndcg_per_sample,
+    parse_candidates,
+    select_winner,
+)
 from jobs.training.champion_eval import Champion, evaluate_champion, load_production_champion
 from jobs.training.training_figures import baseline_comparison_figure, training_curves_figure
 from reco_mlops_libs.common.env import require_env
@@ -80,39 +94,45 @@ def to_item_inputs(items: CatalogItems) -> T.ItemInputs:
                         items.train_counts, items.vocab, items.price_edges)
 
 
-def run_training(
-    item_rows: list[dict],
-    user_rows: list[dict],
+@dataclass
+class TrainedCandidate:
+    """One finished MLflow run of one candidate (ADR 0015)."""
+
+    id: str
+    out: dict  # what the job prints for this run: run_id, metrics, run facts
+    val_ndcg_per_sample: np.ndarray
+    n_params: int
+    model_uri: str
+
+
+def _train_candidate(
+    candidate_id: str,
     cfg: T.MethodConfig,
     *,
-    seed: int = 2023,
-    register: bool = True,
-    device: str = "cpu",
-    text: np.ndarray | None = None,
-    lineage_tables: dict[str, Table] | None = None,
-    champion: Champion | None = None,
-) -> dict:
-    """Core routine, no Iceberg/MLflow-URI setup of its own (same split as
-    `train_sequence.run_training`) so `tests/model/test_train_agf_smoke.py`
-    can drive it with fixtures under a `file://` tracking URI.
-
-    `champion` (the current production model, ADR 0013) is scored on the very
-    samples this run validates/tests on; the numbers go into the run so
-    `promote.py` can compare on one split."""
-    items_list, meta = catalog_meta(item_rows)
-    inter = interactions_from_sequences(user_rows)
-    catalog = build_catalog_items(inter, meta, items_list, cfg.use_text, text=text)
-    items = to_item_inputs(catalog)
-
-    mlflow.set_experiment(EXPERIMENT_NAME)
-    with mlflow.start_run() as run:
-        mlflow.set_tag("model_type", "agf-gru4rec")
+    inter,
+    catalog: CatalogItems,
+    items: T.ItemInputs,
+    n_items: int,
+    n_user_rows: int,
+    seed: int,
+    device: str,
+    lineage_tables: dict[str, Table] | None,
+    champion: Champion | None,
+    group_id: str,
+    run_name: str | None,
+) -> TrainedCandidate:
+    """Train one candidate and log everything to its own MLflow run. Does **not**
+    register anything — only the selected winner is registered by `run_training`."""
+    with mlflow.start_run(run_name=run_name) as run:
+        mlflow.set_tag("model_type", f"agf-{cfg.backbone}")
         mlflow.set_tag("adr", "0008")
+        mlflow.set_tag("candidate_id", candidate_id)
+        mlflow.set_tag("candidate_group", group_id)
         mlflow.log_params({
             **{f"cfg_{k}": v for k, v in asdict(cfg).items()},
             "seed": seed,
-            "n_items": len(items_list),
-            "n_users_rows": len(user_rows),
+            "n_items": n_items,
+            "n_users_rows": n_user_rows,
             "n_interactions": len(inter),
             "items_with_train_count": int((catalog.train_counts[1:] > 0).sum()),
             "vocab_categories": len(catalog.vocab["categories"]),
@@ -167,6 +187,11 @@ def run_training(
             metrics.update(champion_metrics)
             run_facts.update(champion_params)
 
+        # Per-sample validation NDCG, for the paired comparison between candidates.
+        per_sample = ndcg_per_sample(result["model"], samples["valid"], 10, cfg.eval_batch_size, device)
+        if len(per_sample) and abs(float(per_sample.mean()) - result["valid"]["ndcg@10"]) > 1e-6:
+            raise RuntimeError("per-sample NDCG disagrees with trainer.evaluate")
+
         with tempfile.TemporaryDirectory(prefix="agf-export-") as tmp:
             exported = T.export(result, cfg, items, Path(tmp), seed)
             if exported["item_table_max_abs_diff"] >= MAX_TABLE_DIFF:
@@ -193,11 +218,108 @@ def run_training(
         out = {"run_id": run.info.run_id, **metrics, **run_facts}
         if champion is not None:
             out["champion_version"] = champion.version
-        if register:
-            registered = mlflow.register_model(model_info.model_uri, REGISTERED_MODEL_NAME)
-            out["registered_model"] = REGISTERED_MODEL_NAME
-            out["registered_version"] = registered.version
-        return out
+        return TrainedCandidate(candidate_id, out, per_sample, int(exported["n_params"]), model_info.model_uri)
+
+
+def _record_selection(client, trained: list[TrainedCandidate], selection) -> dict:
+    """Write the outcome to MLflow: every run is tagged selected or not, the winner's run
+    carries `selected_from`, the rule and every candidate's validation score."""
+    by_id = {t.id: t for t in trained}
+    for candidate in trained:
+        selected = str(candidate.id == selection.winner).lower()
+        client.set_tag(candidate.out["run_id"], "candidate_selected", selected)
+    run_id = by_id[selection.winner].out["run_id"]
+    client.log_param(run_id, "selected_from", ",".join(t.id for t in trained))
+    client.log_param(run_id, "selected_candidate", selection.winner)
+    client.log_param(run_id, "selection_rule", selection.rule)
+    client.log_param(run_id, "selection_default", selection.default)
+    for candidate in trained:
+        value = float(candidate.val_ndcg_per_sample.mean())
+        client.log_metric(run_id, f"candidate_{candidate.id}_val_ndcg_at_10", value)
+        margin = selection.margins.get(candidate.id)
+        if margin and margin["z"] is not None:
+            client.log_metric(run_id, f"candidate_{candidate.id}_margin_se", margin["z"])
+    own = selection.margins.get(selection.winner) or {}
+    client.log_metric(run_id, "selection_margin_se", own.get("z") or 0.0)
+    return {
+        "winner": selection.winner,
+        "default": selection.default,
+        "rule": selection.rule,
+        "margins": selection.margins,
+        "candidates": {
+            t.id: {"run_id": t.out["run_id"], "val_ndcg_at_10": float(t.val_ndcg_per_sample.mean()),
+                   "test_ndcg_at_10": t.out["test_ndcg_at_10"], "n_params": t.n_params}
+            for t in trained
+        },
+    }
+
+
+def run_training(
+    item_rows: list[dict],
+    user_rows: list[dict],
+    cfg: T.MethodConfig,
+    *,
+    seed: int = 2023,
+    register: bool = True,
+    device: str = "cpu",
+    text: np.ndarray | None = None,
+    lineage_tables: dict[str, Table] | None = None,
+    champion: Champion | None = None,
+    candidates: list[str] | None = None,
+) -> dict:
+    """Core routine, no Iceberg/MLflow-URI setup of its own (same split as
+    `train_sequence.run_training`) so `tests/model/test_train_agf_smoke.py`
+    can drive it with fixtures under a `file://` tracking URI.
+
+    `champion` (the current production model, ADR 0013) is scored on the very
+    samples each run validates/tests on; the numbers go into the run so
+    `promote.py` can compare on one split.
+
+    `candidates` (ADR 0015, default `["gru4rec"]` = the base config as before): ids
+    from `candidates.CANDIDATE_OVERRIDES`. Each is trained on the same split in its
+    own MLflow run; `candidates.select_winner` picks one on validation, and only that
+    one is registered. With a single candidate nothing about the run changes."""
+    ids = list(candidates) if candidates else parse_candidates(None)
+    unknown = [i for i in ids if i not in CANDIDATE_OVERRIDES]
+    if unknown:
+        raise ValueError(f"unknown candidate(s) {unknown}")
+
+    items_list, meta = catalog_meta(item_rows)
+    inter = interactions_from_sequences(user_rows)
+    catalog = build_catalog_items(inter, meta, items_list, cfg.use_text, text=text)
+    items = to_item_inputs(catalog)
+
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    group_id = uuid.uuid4().hex[:12]
+    trained: list[TrainedCandidate] = []
+    for candidate_id in ids:
+        trained.append(_train_candidate(
+            candidate_id, replace(cfg, **CANDIDATE_OVERRIDES[candidate_id]),
+            inter=inter, catalog=catalog, items=items,
+            n_items=len(items_list), n_user_rows=len(user_rows), seed=seed, device=device,
+            lineage_tables=lineage_tables, champion=champion, group_id=group_id,
+            run_name=candidate_id if len(ids) > 1 else None,
+        ))
+
+    selection_info = None
+    if len(trained) == 1:
+        winner = trained[0]
+    else:
+        selection = select_winner([
+            Scored(t.id, float(t.val_ndcg_per_sample.mean()), t.val_ndcg_per_sample, t.n_params) for t in trained
+        ])
+        selection_info = _record_selection(mlflow.MlflowClient(), trained, selection)
+        winner = next(t for t in trained if t.id == selection.winner)
+
+    out = dict(winner.out)
+    if selection_info is not None:
+        out["selected_candidate"] = winner.id
+        out["selection"] = selection_info
+    if register:
+        registered = mlflow.register_model(winner.model_uri, REGISTERED_MODEL_NAME)
+        out["registered_model"] = REGISTERED_MODEL_NAME
+        out["registered_version"] = registered.version
+    return out
 
 
 def load_gold_rows() -> tuple[list[dict], list[dict], dict[str, Table]]:
@@ -214,12 +336,16 @@ def load_gold_rows() -> tuple[list[dict], list[dict], dict[str, Table]]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train AGF-GRU4Rec (ADR 0008) and register it in MLflow.")
+    parser = argparse.ArgumentParser(
+        description="Train AGF (ADR 0008; several candidates, ADR 0015) and register the best one in MLflow.")
     parser.add_argument("--config", type=Path, default=CONFIG_PATH)
     parser.add_argument("--seed", type=int, default=2023)
     parser.add_argument("--no-text", action="store_true", help="skip the MiniLM text branch (offline)")
     parser.add_argument("--epochs", type=int, default=None, help="override max epochs (quick runs)")
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--candidates", default=os.getenv("TRAIN_CANDIDATES"),
+                        help="comma-separated ids from jobs/training/candidates.py (default gru4rec; env "
+                             "TRAIN_CANDIDATES): trains each, registers only the selected one")
     parser.add_argument("--no-champion", action="store_true",
                         help="do not score the production model on this run's split (promote.py then "
                              "falls back to the legacy comparison)")
@@ -233,6 +359,7 @@ def main() -> int:
         cfg = replace(cfg, use_text=False)
     if args.epochs is not None:
         cfg = replace(cfg, epochs=args.epochs)
+    candidates = parse_candidates(args.candidates)
 
     mlflow.set_tracking_uri(require_env("MLFLOW_TRACKING_URI"))
     item_rows, user_rows, lineage = load_gold_rows()
@@ -240,7 +367,7 @@ def main() -> int:
     # would make promote.py fall back to the cross-split comparison silently.
     champion = None if args.no_champion else load_production_champion(REGISTERED_MODEL_NAME)
     result = run_training(item_rows, user_rows, cfg, seed=args.seed, device=args.device,
-                          lineage_tables=lineage, champion=champion)
+                          lineage_tables=lineage, champion=champion, candidates=candidates)
     print(json.dumps(result))
     return 0
 

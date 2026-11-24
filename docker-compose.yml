@@ -265,6 +265,9 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local_minio_password_change_me}
       AWS_DEFAULT_REGION: ${MINIO_REGION:-us-east-1}
+      # ADR 0015 — candidates train_agf trains per run (comma-separated ids from
+      # jobs/training/candidates.py); the default is the single gru4rec model.
+      TRAIN_CANDIDATES: ${TRAIN_CANDIDATES:-gru4rec}
       # Phase 5: jobs.candidates.similar_items writes to Redis.
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
