@@ -72,7 +72,7 @@ thực tế đã code.
 - `infra/jenkins/docker-compose.jenkins.yml` — standalone, **không** thuộc
   `docker-compose.yml` chính (CLAUDE.md: service chỉ phục vụ CI không vào
   compose chính) — bật riêng bằng
-  `docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build`.
+  `docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build`.
 - `docker-compose.ci.yml` — override chỉ dùng trong stage Integration Test,
   `ports: !reset []` cho mọi service publish port host (Compose *merge*
   chứ không *replace* list theo mặc định — `ports: []` không đủ, phải dùng
@@ -147,7 +147,7 @@ implement, không đổi quyết định kiến trúc nào.
   Images` sẽ fail rõ ràng (không chặn pipeline nhờ `catchError`) cho tới khi
   set `DOCKERHUB_TOKEN` thật trong `.env`. Việc còn lại thuần thao tác tay,
   không phải code: (1) tạo Docker Hub Access Token, set
-  `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; (2) `docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build`,
+  `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; (2) `docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build`,
   tạo 1 job Multibranch Pipeline trỏ vào repo `origin` qua Jenkins UI.
 - **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên
   image `:latest` (xem `phase-6-orchestration.md`), nên image Jenkins push

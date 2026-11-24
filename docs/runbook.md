@@ -10,7 +10,7 @@ make up            # hạ tầng core (Postgres, MinIO, Lakekeeper, MLflow,
                     # Redis, serving, ui) + Prometheus/Grafana (override
                     # tự nạp)
 make airflow-up     # Airflow (riêng, không thuộc make up)
-docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build   # Jenkins (riêng)
+docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build   # Jenkins (riêng)
 
 make down           # dừng, giữ volume
 make clean          # dừng + XOÁ volume (mất toàn bộ dữ liệu local)

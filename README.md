@@ -305,11 +305,19 @@ Report (HTML + JSON) ghi lên MinIO bucket `monitoring-reports`. Chi tiết:
 Standalone, không thuộc `make up`:
 
 ```bash
-docker compose -f infra/jenkins/docker-compose.jenkins.yml up -d --build
+docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build
 ```
 
+`--env-file .env` là bắt buộc: file compose nằm trong `infra/jenkins/` nên
+Compose không tự đọc `.env` ở thư mục gốc, và nếu thiếu nó Jenkins chạy với
+`admin`/`admin` thay vì mật khẩu của bạn. `-p mlops4rec-jenkins` giữ đúng tên
+project (nếu không, `COMPOSE_PROJECT_NAME` trong `.env` đè lên `name:` của file
+compose, sinh container `recommendation-mlops-jenkins-1` mới, đụng cổng 8090 và
+bỏ volume `jenkins_home` cũ). Đổi `JENKINS_ADMIN_PASSWORD` rồi chạy lại đúng
+lệnh trên là áp dụng được (Configuration as Code nạp lại lúc khởi động).
+
 Jenkins UI: http://localhost:8090 (đăng nhập `JENKINS_ADMIN_USER`/
-`JENKINS_ADMIN_PASSWORD` trong `.env`, mặc định `admin`/`admin`). Tạo 1 job
+`JENKINS_ADMIN_PASSWORD` trong `.env`). Tạo 1 job
 **Multibranch Pipeline** trỏ vào repo Git của bạn — `Jenkinsfile` ở repo
 root tự chạy 6 stage (Lint, Unit Test, Integration Test, Model Smoke Test,
 Build & Push Images). Muốn push image thật lên Docker Hub, set
