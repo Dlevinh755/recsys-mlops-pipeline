@@ -14,6 +14,12 @@ name: mlops4rec-jenkins
 
 services:
   jenkins:
+    # Chạy bằng root để đọc được /var/run/docker.sock (trên Docker Desktop
+    # socket không thuộc nhóm của user `jenkins` -> "permission denied while
+    # trying to connect to the docker API"). Chấp nhận được vì Jenkins chỉ
+    # chạy local; cách chặt hơn là `group_add` đúng GID của socket trên máy
+    # chạy.
+    user: root
     build:
       context: ../..
       dockerfile: infra/docker/jenkins/Dockerfile

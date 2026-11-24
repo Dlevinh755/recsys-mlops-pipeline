@@ -38,6 +38,10 @@ pipeline {
         // nothing else needs to change for two builds to run in parallel
         // without colliding on Compose project names.
         COMPOSE_PROJECT_NAME = "reco-ci-${env.BUILD_NUMBER}"
+        // Mọi stage phải nạp cả docker-compose.ci.yml (bỏ cổng host): stage
+        // Lint/Unit Test cũng `docker compose run` nên kéo theo catalog-db...
+        // và va cổng 5434 với stack dev nếu thiếu file này.
+        COMPOSE_FILE = 'docker-compose.yml:docker-compose.override.yml:docker-compose.ci.yml'
     }
 
     stages {
