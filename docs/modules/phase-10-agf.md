@@ -280,9 +280,14 @@ Grafana `serving-overview` có request rate, latency p95 (~20 ms cho
 `/recommend/homepage`) và cache hit ratio 100% sau 30 request cùng một user;
 panel Error rate hiện "No data" vì chưa có phản hồi 5xx nào.
 
-**Chưa chứng minh**: monitoring phát hiện được drift thật — cần nạp lô dữ liệu
-có phân phối khác (`test.parquet`/`incoming/`) rồi chạy lại. Jenkins chưa chạy
-với model mới.
+**Kiểm tra bộ phát hiện drift (2026-11-24, chạy tay trong `monitoring-job`, không ghi
+báo cáo, không đụng Silver)**: cùng `DataDriftPreset` và baseline `train.parquet`.
+Với Silver thật (14.769 dòng): `dataset_drift=False`, cả `rating` và
+`is_cold_start_item` không drift (điểm 0,0 và 0,0048). Với lô tổng hợp cùng kích
+thước (rating lệch thấp, 60% item lạ): `dataset_drift=True`, cả 2 cột drift
+(điểm 0,447 và 0,524). Mới chứng minh bộ phát hiện hoạt động; **chưa** chứng
+minh trên lô dữ liệu thật khác phân phối (`test.parquet`/`incoming/`) chạy qua
+`dag_monitoring`. Jenkins: xem `phase-8-cicd.md` mục Integration Test.
 
 ## 6. Danh sách file đã triển khai
 

@@ -38,8 +38,9 @@ similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_1
 0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
 `model_card.md`. **2026-11-24**: Airflow (`dag_transform`, `dag_training`) và monitoring
 (Prometheus/Grafana, `dag_monitoring`) đã chạy với model mới — `phase-10-agf.md`
-mục 7.4. **Việc còn lại**: chạy thử
-Jenkins với model mới; demo drift thật bằng lô dữ liệu khác phân phối.
+mục 7.4. **Việc còn lại**: chạy lại
+Jenkins sau khi push Jenkinsfile đã sửa (build #6 fail vì pipeline thiếu bước extract, Model
+Smoke Test chạy tay pass); demo drift thật bằng lô dữ liệu khác phân phối.
 
 
 **Toàn bộ MVP1 (Phase 0–8) đã hoàn thành.** Không còn phase nào "kế tiếp"
