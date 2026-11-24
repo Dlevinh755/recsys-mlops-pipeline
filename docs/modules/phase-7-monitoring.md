@@ -73,6 +73,25 @@ Phase 0 đã nói rõ ý này, không phải hành vi bất ngờ.
 - `airflow/dags/dag_monitoring.py` — 2 task độc lập, dùng lại nguyên vẹn
   `JobDockerOperator` (Phase 6).
 
+### 2.2b Quyết định retrain và baseline theo model (2026-11-24, ADR 0014)
+
+Evidently trước đây chỉ sinh báo cáo. Thêm ba job và một DAG nối chúng (chi tiết
+và số đo thật: ADR 0014, `phase-10-agf.md` mục 7.6):
+
+- `data_drift_report.py` — JSON lưu thêm khoá `reco_summary` (`dataset_drift`,
+  `drifted_columns`, điểm từng cột, số dòng baseline/hiện tại, nguồn baseline).
+  Baseline: `current.parquet` nếu có, không thì `train.parquet` như cũ
+  (`baseline.py`).
+- `retrain_decision.py` — hàm thuần `decide(signals, policy)`; thoát **0 = retrain,
+  99 = bỏ qua**; ghi quyết định lên `monitoring-reports/retrain_decision/`.
+- `refresh_baseline.py` — khi alias `production` đổi sang version mới, ghi lại
+  `current.parquet` + `current.meta.json` từ Silver **đúng snapshot lúc train**
+  (fallback Silver hiện tại, ghi `source`). Version không đổi → không làm gì.
+- `airflow/dags/dag_continuous_training.py` — chỉ nối job và trigger các DAG có
+  sẵn; tạo ở trạng thái tạm dừng.
+- Ngưỡng: `RETRAIN_MIN_NEW_ROWS`, `RETRAIN_NEW_ROWS_RATIO`,
+  `RETRAIN_MAX_MODEL_AGE_DAYS`, `RETRAIN_COOLDOWN_HOURS` (`.env.example`).
+
 ### 2.3 `tests/load/locustfile.py`
 
 Tự lấy user/item thật qua `GET /users` + response `/recommend/homepage`
@@ -151,6 +170,11 @@ nguyên tắc kiến trúc.
 | `jobs/monitoring/report_sink.py` | Ghi report lên MinIO | Bucket `MONITORING_REPORTS_BUCKET` |
 | `jobs/monitoring/data_drift_report.py` | Evidently data drift | Baseline từ `MONITORING_BASELINE_BUCKET` |
 | `jobs/monitoring/model_quality_report.py` | Vocab coverage + metric trend | Đọc MLflow registry, `gold.item_features` |
+| `jobs/monitoring/baseline.py` | Đọc/ghi baseline trên MinIO (`train.parquet` → `current.parquet` + meta) | `prefix` cho test (ADR 0014) |
+| `jobs/monitoring/retrain_decision.py` | Quyết định retrain, exit 0/99 | `RETRAIN_*` env; ghi `monitoring-reports/retrain_decision/` |
+| `jobs/monitoring/refresh_baseline.py` | Dịch baseline theo model production | Time travel `iceberg_snapshot_id.silver.interactions`, fallback `silver_current` |
+| `airflow/dags/dag_continuous_training.py` | drift → decision → ingest…training → refresh | `skip_on_exit_code=99`, `@daily` tạm dừng, `max_active_runs=1` |
+| `tests/monitoring/` | 12 + 3 test thuần, 5 test trên MinIO thật (`it_test_*`) | Chạy trong image `monitoring-job`; Jenkinsfile gọi cả hai nhóm |
 | `scripts/upload_monitoring_baseline.py` | Seed baseline (chạy tay 1 lần) | Cùng kiểu `seed_source_db.py` |
 | `airflow/dags/dag_monitoring.py` | 2 task độc lập | `JobDockerOperator` tái dùng từ Phase 6 |
 | `infra/minio/init-buckets.sh`, `docker-compose.yml` (`minio-init`) | +2 bucket mới | `monitoring-baseline`, `monitoring-reports` |

@@ -310,6 +310,16 @@ Lift so với Pop: v6 2,27×, v4 2,08× (số của run v4 trên split cũ). C�
 chối như cũ. Không có mẫu nào champion không chấm được (0 target lạ, 0 chuỗi
 rỗng). 1 seed, ~1,5K mẫu valid: hiệu 0,0167 chưa có khoảng tin cậy.
 
+### 7.6 Vòng lặp drift → retrain (2026-11-24, ADR 0014)
+
+`dag_continuous_training` chạy thật từ trạng thái có drift thật (Silver 18.456 dòng
+so với baseline `train.parquet` 14.748, `incoming/` đã nạp): quyết định `retrain=true`,
+chuỗi ingest → … → training xanh trong ~5 phút, v8 được chấm champion v4 trên cùng
+split (0,0680) và **được promote** (0,0847, `same_split`); serving báo
+`model_version: 8`. `refresh_baseline` ghi baseline từ snapshot Silver lúc train v8;
+lần chạy lại ngay: không drift, `new_rows = 0`, `retrain=false`, các task sau skipped,
+run xanh. Bảng đầy đủ ở ADR 0014. Production đã chuyển v4 → v8.
+
 ## 6. Danh sách file đã triển khai
 
 ### `libs/` (version 0.7.0)

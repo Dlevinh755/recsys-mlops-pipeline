@@ -53,6 +53,23 @@ docker compose --profile jobs run --rm --no-deps training-job jobs.training.prom
 
 In JSON có `comparison` (`same_split` / `legacy` / `first`), `reason`, `would_promote`; alias `production` giữ nguyên. `--version N` xét version cụ thể, `--min-delta X` đòi challenger vượt champion hơn X. `train_agf --no-champion` bỏ bước chấm champion (khi đó cổng rơi về `legacy`). Xem ADR 0013.
 
+## Vòng lặp drift → retrain (ADR 0014)
+
+Chạy tay từng bước, không qua Airflow (exit `0` = retrain, `99` = bỏ qua):
+
+```powershell
+docker compose --profile jobs run --rm --no-deps monitoring-job jobs.monitoring.data_drift_report
+docker compose --profile jobs run --rm --no-deps monitoring-job jobs.monitoring.retrain_decision
+docker compose --profile jobs run --rm --no-deps monitoring-job jobs.monitoring.refresh_baseline
+```
+
+Quyết định và lý do nằm ở `monitoring-reports/retrain_decision/<ts>.json`. Chỉnh ngưỡng
+bằng `RETRAIN_*` trong `.env` (xem `.env.example`); demo thì `RETRAIN_COOLDOWN_HOURS=0`,
+rồi `docker compose restart airflow-scheduler`. Chạy cả chuỗi: unpause
+`dag_continuous_training` (tạo ở trạng thái tạm dừng) và Trigger; unpause cũng tạo
+ngay một run cho khoảng trước. Đặt lại baseline về `train.parquet`: xoá
+`current.parquet` và `current.meta.json` trong bucket `monitoring-baseline`.
+
 ## Rollback model thủ công
 
 Model production được chọn qua alias MLflow (`production`), không phải

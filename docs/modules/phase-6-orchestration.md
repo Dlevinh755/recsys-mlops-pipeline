@@ -106,9 +106,13 @@ nguyên tắc #1: DAG không xử lý logic, chỉ gọi lại job).
   Cách dùng: `docs/runbook.md` mục "Chạy DAG bằng image của CI".
 - ~~`jobs/maintenance/compact_iceberg.py` + `dag_maintenance.py`~~ — **đã
   làm ở Phase 7**.
-- Chưa có scheduling tự động (cron) hay cross-DAG trigger — DoD hiện tại
-  chỉ yêu cầu trigger thủ công đúng thứ tự; đặt `schedule=` cụ thể là việc
-  dễ, để lại vì chưa có yêu cầu tần suất chạy thật.
+- ~~Chưa có scheduling tự động hay cross-DAG trigger~~ — từ 2026-11-24 có
+  `dag_continuous_training` (ADR 0014): `@daily`, tạo ở trạng thái tạm dừng,
+  trigger tuần tự `dag_ingest → … → dag_training` bằng
+  `TriggerDagRunOperator(wait_for_completion=True)` sau khi `retrain_decision`
+  quyết định retrain. Các DAG cũ vẫn `schedule=None` và chạy tay như trước;
+  `_defaults.py` đặt `is_paused_upon_creation=False` cho chúng (run của DAG đang
+  tạm dừng không bao giờ bắt đầu nên DAG con không được sinh ra ở trạng thái đó).
 
 ## 6. Danh sách file đã triển khai
 
