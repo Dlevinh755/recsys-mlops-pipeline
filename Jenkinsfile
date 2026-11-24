@@ -108,6 +108,9 @@ pipeline {
                 sh 'docker compose --profile jobs run --rm --entrypoint python transform-job -m pytest tests/unit/test_package_metadata.py -v'
                 sh 'docker compose --profile jobs run --rm --entrypoint python extract-job -m pytest tests/unit/extract -v'
                 sh 'docker compose --profile jobs run --rm --entrypoint python training-job -m pytest tests/unit/training -v'
+                // ADR 0014: retrain decision rule + drift summary parser (evidently lives
+                // only in the monitoring image). No stack needed → --no-deps.
+                sh 'docker compose --profile jobs run --rm --no-deps --entrypoint python monitoring-job -m pytest tests/monitoring/test_retrain_decision.py tests/monitoring/test_drift_summary.py -v'
             }
         }
 
@@ -128,6 +131,9 @@ pipeline {
             steps {
                 sh 'docker compose up -d --build'
                 sh 'docker compose --profile jobs run --rm --entrypoint python transform-job -m pytest /app/tests/integration -v'
+                // ADR 0014: baseline files + drift-report lookup on the real MinIO
+                // (keys under it_test_*, removed afterwards).
+                sh 'docker compose --profile jobs run --rm --entrypoint python monitoring-job -m pytest /app/tests/monitoring/test_baseline_minio.py -v'
                 // Feed the pipeline for real so the skew test below has
                 // both an offline (Gold) and online (Feast/Redis) side to
                 // compare — no point testing skew against empty tables.

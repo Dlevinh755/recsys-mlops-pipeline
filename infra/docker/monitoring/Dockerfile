@@ -10,10 +10,17 @@ COPY libs/ /app/libs/
 COPY requirements/monitoring.txt /tmp/monitoring.txt
 RUN pip install --no-cache-dir -e /app/libs -r /tmp/monitoring.txt
 
+# pytest (tests/monitoring, run by the Jenkinsfile inside this exact image, same
+# as the training image). dev.txt's own `-e ../libs` line is host-relative:
+# stripped, `-e /app/libs` above already installs the package.
+COPY requirements/dev.txt /tmp/dev.txt
+RUN grep -v '^-e ' /tmp/dev.txt > /tmp/dev-tools.txt     && pip install --no-cache-dir -r /tmp/dev-tools.txt
+
 COPY jobs/__init__.py /app/jobs/__init__.py
 COPY jobs/transform/iceberg_writer.py /app/jobs/transform/iceberg_writer.py
 COPY jobs/transform/__init__.py /app/jobs/transform/__init__.py
 COPY jobs/monitoring/ /app/jobs/monitoring/
+COPY tests/monitoring/ /app/tests/monitoring/
 
 RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app

@@ -11,6 +11,7 @@ notebooks
 tests
 !tests/integration
 !tests/model
+!tests/monitoring
 !tests/data_quality
 !tests/unit
 upload
