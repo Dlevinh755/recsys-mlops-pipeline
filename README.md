@@ -147,7 +147,7 @@ docker compose --profile jobs run --rm transform-job jobs.transform.build_gold
 
 (hoặc `make bronze` / `make silver` / `make gold` nếu có GNU Make). Bronze
 append-only, idempotent theo `_extraction_run_id` (rerun không tạo dữ liệu
-trùng); Silver/Gold tính lại toàn bộ mỗi lần chạy. Chi tiết:
+trùng); Silver tăng dần theo watermark (`--full-refresh` để tính lại toàn bộ, ADR 0010); Gold tính lại toàn bộ mỗi lần chạy. Chi tiết:
 [`docs/modules/phase-2-lakehouse.md`](docs/modules/phase-2-lakehouse.md).
 
 Kiểm tra dữ liệu qua DuckDB (không cần cài gì thêm, chạy trong container):
