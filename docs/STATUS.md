@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silver tăng dần — ADR 0010; ghim s3fs 2026.1.0 — ADR 0009)
+Cập nhật lần cuối: 2026-11-25 (cổng promote, vòng lặp drift → retrain, đa ứng viên — ADR 0013–0015; Jenkins build #12 — ADR 0011)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -20,6 +20,14 @@ Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silve
 | 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; 8 dòng fixture: đã rõ nguyên nhân (7.3) | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
+
+**2026-11-24 — Jenkins build #12 (commit `86591f8`, ADR 0013–0015):** push 13 commit
+(giai đoạn A, B, F của `side_doc/SPEC-retrain-loop-and-promote-gate.md`); `pollSCM` tự
+chạy, ~16 phút. Mọi test mới pass trên Jenkins (49 + 15 unit, 23 integration, 5 test
+baseline trên MinIO, 5 model smoke). `Build & Push` đẩy 7/8 image (`transform` timeout
+proxy tới Docker Hub) mà build vẫn xanh; đã đổi `catchError` sang `UNSTABLE` (chưa chạy
+lại). Image `transform:86591f8` chưa có trên Docker Hub cho tới khi chạy lại build hoặc
+push tay.
 
 **2026-11-24 — Sửa Jenkins đợt 2 (ADR 0011 mục 5–7), đã push, build #10 và #11 xanh (6,8 phút khi cache ấm):** `Build & Push`
 chỉ tag lại image tag SHA đã test (trước đó push nhầm bản cũ cho 3 image),

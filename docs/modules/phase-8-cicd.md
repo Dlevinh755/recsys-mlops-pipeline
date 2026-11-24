@@ -67,9 +67,11 @@ thực tế đã code.
    trường của container Jenkins lọt vào Compose), nên build #7 và #8 đã push
    bản **cũ còn sót từ build #6** cho `transform`/`materialize`/`training`
    (nội dung khác bản đúng chỉ ở một docstring, nhưng tag SHA không khớp
-   code). Bọc `catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE')` —
-   thiếu `dockerhub-creds` thật không làm hỏng cả pipeline, chỉ stage này
-   fail rõ ràng (xem mục 5).
+   code). Bọc `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE')` —
+   thiếu `dockerhub-creds` thật hoặc một lần push lỗi không làm hỏng cả pipeline,
+   chỉ stage này đỏ và build ngả vàng (UNSTABLE). Trước 2026-11-25 giá trị là
+   `'SUCCESS'`: build #12 push hỏng `transform` (timeout proxy tới Docker Hub) mà
+   vẫn xanh. Giá trị mới chưa được Jenkins chạy thật (xem mục 5).
 
 Đã validate cú pháp thật qua chính API linter của Jenkins
 (`/pipeline-model-converter/validate`), không chỉ đọc bằng mắt.
@@ -164,11 +166,21 @@ implement, không đổi quyết định kiến trúc nào.
   `recsys-mlops` trỏ `origin` đã tạo trong Jenkins UI. `pollSCM` đã được xác
   nhận: sau khi push `7156423` lúc 11:05 UTC, build #8 tự chạy ("Started by an
   SCM change"), xanh trong khoảng 11,4 phút, 8 image tag `7156423`.
+- **Build #12** (2026-11-24, commit `86591f8`, tự chạy nhờ `pollSCM`, khoảng 16
+  phút vì commit đổi nhiều và phải build lại): lint sạch, unit test `training`
+  49 + `monitoring` 15, 23 integration test, 5 test baseline trên MinIO thật
+  (`tests/monitoring/test_baseline_minio.py`), skew test, 5 model smoke test (94
+  giây). Đây là lần đầu Jenkins chạy các bước test của ADR 0013–0015. Stage
+  `Build & Push Images` đẩy 7/8 image; `transform` lỗi
+  `proxyconnect tcp: dial tcp 192.168.65.1:3128: i/o timeout` (mạng Docker Desktop,
+  không phải code) nhưng build vẫn báo SUCCESS vì `catchError(buildResult: 'SUCCESS')`
+  — đã đổi sang `UNSTABLE`. Giá trị mới và việc chạy lại push `transform` chưa kiểm
+  chứng.
 - **Chưa kiểm tra**: image đẩy lên Docker Hub có đang để public hay private
   (mặc định repo Docker Hub mới là public) — việc tùy chọn của người dùng.
-- **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên
-  image `:latest` (xem `phase-6-orchestration.md`), nên image Jenkins push
-  theo SHA chưa được DAG tiêu thụ.
+- ~~Airflow chưa dùng image tag SHA~~ — lỗi thời: `JobDockerOperator` đọc tên
+  image đã phân giải từ `docker compose config` (xem `phase-6-orchestration.md`),
+  đã kiểm chứng task chạy từ image `:7156423`.
 - `expire_snapshots` đã làm 2026-11-24 (ADR 0012).
 
 ## 6. Danh sách file đã triển khai

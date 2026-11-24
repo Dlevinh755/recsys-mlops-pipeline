@@ -90,6 +90,16 @@ Các phương án đã loại:
   **xanh trong 6,8 phút**, 23 integration test 1,8 phút, Model Smoke Test
   khoảng 30 giây, không còn container `reco-ci-*` sau build. So với #6 (20 phút,
   fail) và #8 (11,4 phút).
+- **Build #12** (commit `86591f8`, 2026-11-24, tự chạy nhờ `pollSCM`, khoảng 16
+  phút): build đầu tiên chạy test của ADR 0013–0015 (49 + 15 unit test, 23
+  integration, 5 test baseline trên MinIO, 5 model smoke) — tất cả pass. Push lỗi
+  một image (`transform`: `proxyconnect ... i/o timeout` tới Docker Hub, 7/8 lên
+  thành công) nhưng build vẫn **SUCCESS** vì `catchError(buildResult: 'SUCCESS')`.
+  Đã đổi `buildResult` sang **`UNSTABLE`** (stage vẫn `FAILURE`): push hỏng không
+  còn lẫn trong build xanh. Hệ quả: build có thể vàng khi mất mạng hoặc thiếu
+  `DOCKERHUB_TOKEN`, thay vì xanh. Chưa chạy thật với giá trị mới và chưa qua lại
+  Jenkins linter (cần đăng nhập); thay đổi chỉ là một giá trị hợp lệ của
+  `buildResult`.
 - Image Airflow vẫn được build 3 lần (3 service cùng Dockerfile, tên giống
   nhau); với BuildKit lần 2–3 là cache hit nên chưa xử lý riêng.
 
