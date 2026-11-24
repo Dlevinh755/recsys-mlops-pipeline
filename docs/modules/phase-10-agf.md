@@ -120,7 +120,7 @@ Không thêm dependency vào image `serving`.
 | `tests/unit/training/test_agf_inputs.py` | `training-job` (hoặc bất kỳ đâu có pandas) | Tách `category_path`; ánh xạ cột; thứ tự chuỗi; `train_counts` bỏ 2 item cuối; mã hoá trùng `features.py`; `[UNK]`/`[MISSING]`; text đúng thứ tự catalog; item lạ → lỗi |
 | `tests/unit/training/test_baselines.py` | như trên | Rank popularity, hoà điểm, NDCG/Recall tính tay |
 | `tests/model/test_train_agf_smoke.py` | `training-job` (Jenkins `Model Smoke Test` tự nhặt) | `run_training` end-to-end trên fixture, `--no-text`, 2 epoch; artifact `agf/item_table.npy`, `item_vocab.json` |
-| `serving/tests/test_score_candidates.py` | image `serving` (chạy tay) | Điểm serving = điểm full-ranking của model; cắt `max_len`; kiểm số hàng `H` |
+| `serving/tests/test_score_candidates.py` | image `serving` (chạy tay; cần `pip install pytest`) | Điểm serving = điểm full-ranking của model; cắt `max_len`; kiểm số hàng `H`; từ ADR 0015 chạy cho cả `sasrec`, `fusion=sum`, `id_only` |
 | `serving/tests/test_model_reload.py` | `training-job` + stack CI | Đổi sang train 2 version AGF tí hon |
 
 ## 3. Khác biệt so với đề xuất ban đầu
@@ -319,6 +319,21 @@ split (0,0680) và **được promote** (0,0847, `same_split`); serving báo
 `model_version: 8`. `refresh_baseline` ghi baseline từ snapshot Silver lúc train v8;
 lần chạy lại ngay: không drift, `new_rows = 0`, `retrain=false`, các task sau skipped,
 run xanh. Bảng đầy đủ ở ADR 0014. Production đã chuyển v4 → v8.
+
+### 7.7 Nhiều ứng viên trong một lần train (2026-11-24, ADR 0015)
+
+`train_agf --candidates gru4rec,sasrec,gru4rec_sum` (hoặc `TRAIN_CANDIDATES`) huấn luyện
+từng ứng viên trên cùng split, mỗi ứng viên một run MLflow, chọn một trên valid theo luật
+"hơn mặc định và vượt 1 sai số chuẩn của hiệu theo cặp" (`jobs/training/candidates.py`) và
+chỉ đăng ký người thắng. Mặc định `gru4rec`: một run, như trước. Điều kiện của spec đã
+thoả trước khi làm: `serving/tests/test_score_candidates.py` có thêm ca `sasrec`,
+`fusion=sum`, `id_only`, chấm khớp `item_table @ state`.
+
+Chạy thật (champion = v8): `gru4rec` 0,0847, `sasrec` 0,0844 (z = −0,06), `gru4rec_sum`
+0,0703 (z = −2,82) → giữ `gru4rec`, đăng ký version 9, tổng ~6 phút. Cổng promote với
+champion v8 cùng cấu hình và dữ liệu cho 0,0847 = 0,0847 → không promote (`>` chặt); điểm
+champion chấm lại khớp chính xác điểm của run, một phép kiểm tra thực của ADR 0013. Bảng
+đầy đủ ở ADR 0015 và `model_card.md`.
 
 ## 6. Danh sách file đã triển khai
 

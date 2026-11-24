@@ -212,6 +212,7 @@ thật (`test.parquet`/`incoming/` dành cho việc này ở Phase 4/7 sau, xem 
 | `jobs/training/train_sequence.py` | `GRU4RecNet`, training loop sampled softmax, `GRU4RecRanker`, log MLflow | `EXPERIMENT_NAME`/`REGISTERED_MODEL_NAME = "reco-mlops-gru4rec"`; CLI `--epochs/--batch-size/--lr/--embedding-dim/--hidden-size/--num-negatives` |
 | `jobs/training/evaluate.py` | 4 hàm metric thuần + `evaluate_val_set()` + CLI re-evaluate | CLI: `--run-id`, `--k` (mặc định 10) |
 | `jobs/training/promote.py` | Gate promotion champion/challenger | CLI: `--model-name`, `--version` (mặc định version mới nhất), `--min-delta`, `--dry-run`; metric gate `champion_val_ndcg_at_10_same_split` (ADR 0013) |
+| `jobs/training/candidates.py` | Bảng ứng viên AGF, NDCG từng mẫu, luật chọn người thắng (ADR 0015) | `CANDIDATE_OVERRIDES`; `train_agf --candidates` / `TRAIN_CANDIDATES` |
 | `jobs/training/champion_eval.py` | Chấm champion trên split của challenger (ADR 0013) | Dịch vocab qua `product_id`; target lạ = hụt; cùng cách chấm của serving |
 
 ### Hạ tầng & test

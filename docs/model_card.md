@@ -81,6 +81,19 @@ Video_Games): `val_ndcg_at_10` version 1 = 0,0913; 2 = 0,0913; 3 = 0,0920;
 đổi giữa hai lần train; chênh 0,0007 giữa version 1 và 3 nhỏ hơn sai số chuẩn
 nêu trên nên không đọc là cải thiện.
 
+**So ba ứng viên AGF** (ADR 0015; một lần chạy 2026-11-24 sau khi nạp `incoming/`,
+cùng split 1.517 mẫu valid, 1 seed, `train_agf --candidates gru4rec,sasrec,gru4rec_sum`):
+
+| Ứng viên | `val_ndcg_at_10` | hiệu so với `gru4rec` (÷ sai số chuẩn) | `test_ndcg_at_10` | Tham số |
+|---|---|---|---|---|
+| `gru4rec` (gate, mặc định) | 0,0847 | — | 0,0767 | 125.504 |
+| `sasrec` | 0,0844 | −0,0003 (−0,06) | 0,0803 | 197.504 |
+| `gru4rec_sum` | 0,0703 | −0,0144 (−2,82) | 0,0628 | 117.184 |
+
+Luật chọn trên valid (hơn mặc định và vượt 1 sai số chuẩn của hiệu theo cặp) giữ
+`gru4rec`. `sasrec` thấp hơn trên valid nhưng cao hơn trên test — với 1 seed và ~1,5K
+mẫu, hai bản không phân biệt được. Chỉ gồm họ AGF; chưa gồm kiến trúc ngoài họ.
+
 Tham chiếu từ thực nghiệm có kiểm soát (không phải dữ liệu pipeline — không
 so trực tiếp): AGF-GRU4Rec valid N@10 0,0321 (Scientific) / 0,0543 (Games),
 GRU4Rec chỉ-ID 0,0214 / 0,0481, Pop 0,0096 / 0,0117
