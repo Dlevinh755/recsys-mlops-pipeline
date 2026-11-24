@@ -7,10 +7,11 @@ from __future__ import annotations
 from datetime import datetime
 
 DAG_KWARGS = dict(
-    schedule=None,  # manual trigger only — DoD only requires triggering
-                     # dag_ingest -> dag_transform -> dag_training ->
-                     # dag_materialize in order from the UI, not automatic
-                     # cross-DAG chaining (out of scope for this MVP).
+    schedule=None,  # manual trigger only. Phase 6 chose no automatic chaining;
+                     # dag_continuous_training (ADR 0014) is the one exception:
+                     # it triggers these DAGs in order, so they must not be
+                     # born paused (a run of a paused DAG never starts).
+    is_paused_upon_creation=False,
     start_date=datetime(2026, 1, 1),
     catchup=False,
     default_args={"retries": 0},
