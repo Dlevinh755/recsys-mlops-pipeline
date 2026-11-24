@@ -75,6 +75,12 @@ tiếp); `n_params = 125.504` (param của run, không phải metric). Với ~1,
 cỡ ±0,01 và chỉ có 1 seed — đây là số minh hoạ cho demo, không phải kết luận
 thống kê. Run MLflow `ee00649754234186b7ea2ba946bfb199`.
 
+Theo dõi qua các version (`model_quality_report`, 2026-11-24, cùng dữ liệu
+Video_Games): `val_ndcg_at_10` version 1 = 0,0913; 2 = 0,0913; 3 = 0,0920;
+4 = 0,0920 (`production` = 4). Cặp bằng nhau do seed cố định và dữ liệu không
+đổi giữa hai lần train; chênh 0,0007 giữa version 1 và 3 nhỏ hơn sai số chuẩn
+nêu trên nên không đọc là cải thiện.
+
 Tham chiếu từ thực nghiệm có kiểm soát (không phải dữ liệu pipeline — không
 so trực tiếp): AGF-GRU4Rec valid N@10 0,0321 (Scientific) / 0,0543 (Games),
 GRU4Rec chỉ-ID 0,0214 / 0,0481, Pop 0,0096 / 0,0117

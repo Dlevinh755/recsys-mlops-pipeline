@@ -242,6 +242,28 @@ tên metric `val_*`/`test_*`/`baseline_pop_*` mà `promote.py`/monitoring đọc
 - Test: `tests/model/test_train_agf_smoke.py` kiểm tra params, các step của
   đường cong và 2 ảnh.
 
+### 7.4 Airflow và monitoring với model mới (2026-11-24)
+
+Sau khi sửa lỗi ký URL của Lakekeeper (`LAKEKEEPER__BASE_URI`, ADR 0009), chạy
+chuỗi `dag_transform` → `dag_training` trên Airflow xanh; registry có 4 version,
+`production` = version 4. `dag_monitoring` chạy xong cả hai task:
+
+| Báo cáo | Kết quả |
+|---|---|
+| `data_drift_report` | baseline 14.748 dòng (`train.parquet` đã upload lại lên `monitoring-baseline`), hiện tại 14.769 dòng; `current_cold_start_ratio` 0,0001. Dữ liệu gần như không đổi so với baseline nên không kỳ vọng drift. Kết luận drift từng cột nằm ở file HTML (`monitoring-reports/data_drift/`), JSON không ghi |
+| `model_quality_report` | `val_ndcg_at_10` theo version: 1 = 0,0913; 2 = 0,0913; 3 = 0,0920; 4 = 0,0920. Vocab coverage 687/687 (1,0) cho version 4 |
+
+Giải thích số liệu: version 1 = 2 và 3 = 4 vì train cố định seed 2023 và không
+có dữ liệu mới giữa hai lần train (version 3 khác 1 do `user_features` đã tính
+lại). Prometheus: 3 target (`serving`, `redis`, `airflow`) đều `up`; dashboard
+Grafana `serving-overview` có request rate, latency p95 (~20 ms cho
+`/recommend/homepage`) và cache hit ratio 100% sau 30 request cùng một user;
+panel Error rate hiện "No data" vì chưa có phản hồi 5xx nào.
+
+**Chưa chứng minh**: monitoring phát hiện được drift thật — cần nạp lô dữ liệu
+có phân phối khác (`test.parquet`/`incoming/`) rồi chạy lại. Jenkins chưa chạy
+với model mới.
+
 ## 6. Danh sách file đã triển khai
 
 ### `libs/` (version 0.7.0)
