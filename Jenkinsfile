@@ -192,12 +192,14 @@ pipeline {
             steps {
                 // `dockerhub-creds` (infra/jenkins/casc.yaml) starts empty
                 // until a real Docker Hub Access Token is set
-                // (DOCKERHUB_TOKEN in .env). catchError lets every stage
-                // above still report a clean pipeline while this one stays
-                // visibly failed/unstable instead of aborting the whole
-                // build — lint/test/model-smoke-test results are never
-                // hidden behind "no registry configured yet".
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                // (DOCKERHUB_TOKEN in .env). catchError keeps a failed push
+                // from aborting the build, so lint/test/model-smoke-test
+                // results are never hidden behind "no registry configured
+                // yet". The build ends UNSTABLE (yellow), not SUCCESS: with
+                // SUCCESS a push that failed (build #12: `transform`, a
+                // proxy timeout to Docker Hub) left the whole build green
+                // while an image was missing from the registry.
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                     sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
                     script {
                         // `failFast` left at its declarative default
