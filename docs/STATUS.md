@@ -17,7 +17,7 @@ Cập nhật lần cuối: 2026-11-24 (Silver tăng dần — ADR 0010; ghim s3f
 | 7 | Monitoring (Prometheus/Grafana + Evidently) | ✅ Hoàn thành | [phase-7-monitoring.md](modules/phase-7-monitoring.md) |
 | 8 | CI/CD, test, tài liệu, đóng gói `libs/` | ✅ Hoàn thành | [phase-8-cicd.md](modules/phase-8-cicd.md) |
 | 9 | ~~Sequence Model (mở rộng, tùy chọn)~~ — gộp vào Phase 4 theo ADR 0004 | ⬜ N/A | — |
-| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; còn 8 dòng fixture mở | [phase-10-agf.md](modules/phase-10-agf.md) |
+| 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; 8 dòng fixture: đã rõ nguyên nhân (7.3) | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
 
@@ -38,7 +38,7 @@ similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_1
 0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
 `model_card.md`. **2026-11-24**: Airflow (`dag_transform`, `dag_training`) và monitoring
 (Prometheus/Grafana, `dag_monitoring`) đã chạy với model mới — `phase-10-agf.md`
-mục 7.4. **Việc còn lại**: điều tra 8 dòng fixture không vào Bronze; chạy thử
+mục 7.4. **Việc còn lại**: chạy thử
 Jenkins với model mới; demo drift thật bằng lô dữ liệu khác phân phối.
 
 

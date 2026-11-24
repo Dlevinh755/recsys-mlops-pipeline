@@ -172,8 +172,7 @@ Không thêm dependency vào image `serving`.
 4. ~~Kiểm tra `sentence-transformers==3.4.1` + `torch==2.9.0`~~ — build image
    `training-job` thành công, train có nhánh text chạy được.
 5. ~~`ui/app.py` còn câu "GRU4Rec"~~ — đã sửa thành "AGF-GRU4Rec".
-6. **Chưa làm**: 8 dòng interaction fixture (`id` 14749–14756, `seed_data.sql`)
-   không vào Bronze — extract trả 14.748 thay vì 14.756 dòng; mục 7.3.
+6. ~~8 dòng interaction fixture (`id` 14749–14756) không vào Bronze~~ — đã tìm ra nguyên nhân (state dlt cục bộ cũ) và sửa `make clean`; không khôi phục dòng ở môi trường hiện tại, mục 7.3.
 7. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, Jenkins chưa
    chạy thật, drift → retrain chưa khép kín) không đổi.
 
@@ -214,15 +213,36 @@ Cold start → từng job chạy ngoài Airflow, theo thứ tự dưới đây.
 - Test `/interact` đã ghi 1 dòng thật vào `source-db` và Redis (user
   `AE25ZD…ME4A`, mua Spider-Man): dữ liệu demo hiện lệch seed 1 dòng.
 
-### 7.3 Việc mở: 8 dòng fixture không vào Bronze
+### 7.3 8 dòng fixture không vào Bronze — đã tìm ra nguyên nhân (2026-11-24)
 
 `seed_data.sql` thêm 8 interaction fixture (`id` 14749–14756, `updated_at`
 tháng 01/2026, sớm hơn dữ liệu Amazon 2026-11-14) nhưng extract chỉ trả
-14.748 dòng, trong khi 5 sản phẩm fixture thì có mặt. Truy vấn trang đầu
-(`updated_at > EPOCH`, `ORDER BY updated_at, id`) về lý thuyết phải lấy cả
-8 dòng. Nguyên nhân chưa xác định; giả thuyết: state incremental của dlt còn
-sót hoặc dlt lọc dòng theo cursor. Không ảnh hưởng demo (dữ liệu Amazon đủ).
-Chưa phải ADR vì chưa có quyết định lệch tài liệu.
+14.748 dòng, trong khi 5 sản phẩm fixture thì có mặt.
+
+**Nguyên nhân**: state cục bộ cũ của dlt, không phải lỗi lọc của dlt. Thư mục
+`data/dlt-pipelines/` là bind mount trên máy host nên `make clean` (chỉ
+`down --volumes`) không xoá nó. Lần chạy tay 2026-09-27 để lại
+`reco_extract_interactions/state.json` với mốc `updated_at` 2026-09-27. Khi cold
+start 2026-11-19, dlt thấy state cục bộ nên không khôi phục từ bucket;
+`start_value` của lần load đầu là `2026-09-27T18:05:48` (đọc từ
+`_dlt_pipeline_state` đầu tiên trong `extract-staging`), nên truy vấn
+`updated_at > mốc` bỏ qua 8 dòng tháng 01/2026. `reco_extract_products` có
+thư mục `schemas` tạo lại ngày 2026-11-19 và `start_value` = 1970, nên sản
+phẩm fixture vào đủ.
+
+**Kiểm chứng**: chạy `make_source_resource` trên pipeline dlt mới (thư mục
+state trống, đích `file://`) với `page_size` 1000 và 100000 đều trả đủ 14.777
+dòng, gồm 8 dòng fixture. Source hiện có 14.777 dòng, Bronze 14.769 — đúng 8
+dòng chênh.
+
+**Đã sửa**: `make clean` xoá thêm `data/dlt-pipelines/reco_extract_*`; thêm
+giải thích vào `docs/runbook.md` mục cold start.
+
+**Không khôi phục 8 dòng trong môi trường hiện tại**: chúng nằm dưới mốc nên
+`>` không bao giờ lấy lại (hệ quả đã ghi ở docstring `dlt_writer.py`). Khôi
+phục cần xoá state cục bộ lẫn bucket rồi nạp lại toàn bộ interactions, làm
+Bronze nhân đôi 14.7k dòng để lấy 8 dòng fixture không dùng cho demo. Lần
+cold start sạch kế tiếp sẽ nạp đủ. Không cần ADR vì không lệch tài liệu gốc.
 
 ### 7.4 Bổ sung 2026-11-24 — làm tab Model metrics của MLflow có nghĩa
 

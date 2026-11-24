@@ -70,11 +70,18 @@ docker compose restart serving
 ## Reset hoàn toàn (cold start)
 
 ```bash
-make clean          # xoá volume core
+make clean          # xoá volume core + state extract của dlt (data/dlt-pipelines/)
 make airflow-down   # (nếu đang chạy)
 make up
 make airflow-up
 ```
+
+`data/dlt-pipelines/` là bind mount trên máy host, **không** nằm trong Docker
+volume. Nếu còn state cũ ở đó thì `last_value` của extract vẫn là mốc của lần
+chạy trước, và dlt chỉ khôi phục từ bucket khi state cục bộ không có — dòng
+nguồn mới có `updated_at` thấp hơn mốc đó sẽ bị bỏ qua mà không báo lỗi
+(`phase-10-agf.md` mục 7.3). Reset thủ công không qua `make clean` thì xoá
+`data/dlt-pipelines/reco_extract_*` **và** bucket `extract-staging` cùng lúc.
 
 Sau đó chạy lại toàn bộ pipeline thủ công hoặc qua Airflow từ đầu. Dữ liệu
 Amazon seed (`infra/source-db/init/seed_data_amazon.sql`) tự nạp lại nhờ

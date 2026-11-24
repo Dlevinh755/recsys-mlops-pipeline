@@ -15,8 +15,9 @@ up: env ## Start Phase 0 infrastructure in the background
 down: ## Stop containers and retain persistent volumes
 	docker compose down --remove-orphans
 
-clean: ## Stop containers and DELETE local Docker volumes
+clean: ## Stop containers and DELETE local Docker volumes + dlt extract state
 	docker compose down --volumes --remove-orphans
+	rm -rf data/dlt-pipelines/reco_extract_*
 
 ps: ## Show Compose service status
 	docker compose ps
