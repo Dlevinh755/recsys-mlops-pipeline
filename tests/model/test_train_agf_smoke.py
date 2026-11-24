@@ -57,6 +57,16 @@ class AGFModelSmokeTest(unittest.TestCase):
         self.assertEqual(run.info.status, "FINISHED")
         artifacts = {a.path for a in client.list_artifacts(result["run_id"], "agf")}
         self.assertIn("agf/item_table.npy", artifacts)
+        # Run facts are params (not one-bar metrics); curves are per-epoch; figures logged.
+        for key in ("best_epoch", "epochs_run", "train_seconds", "train_samples", "val_samples", "n_params"):
+            self.assertIn(key, run.data.params)
+            self.assertNotIn(key, run.data.metrics)
+        for key in ("train_loss", "val_ndcg_at_10_epoch", "val_recall_at_10_epoch",
+                    "baseline_pop_val_ndcg_at_10_epoch", "baseline_pop_val_recall_at_10_epoch"):
+            steps = {m.step for m in client.get_metric_history(result["run_id"], key)}
+            self.assertEqual(steps, set(range(result["epochs_run"])), key)
+        figures = {a.path for a in client.list_artifacts(result["run_id"], "figures")}
+        self.assertEqual(figures, {"figures/training_curves.png", "figures/agf_vs_popularity.png"})
         vocab_path = client.download_artifacts(result["run_id"], "item_vocab.json")
         vocab = json.loads(Path(vocab_path).read_text())
         self.assertEqual(len(vocab), len(item_rows))

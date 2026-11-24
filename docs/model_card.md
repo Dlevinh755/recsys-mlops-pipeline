@@ -58,6 +58,7 @@ run MLflow:
 | `val_ndcg_at_10` | Metric chính — dùng để promote (`promote.py`) và theo dõi xu hướng (`model_quality_report.py`) |
 | `val_recall_at_10`, `val_*_at_20`, `test_*` | Phụ |
 | `baseline_pop_val_*`, `baseline_pop_test_*` | Popularity (đếm trên train) **trên đúng split và cách xếp hạng đó** — mốc tối thiểu model phải vượt |
+| `val_*_epoch` (theo epoch), `figures/*.png` | Đường cong huấn luyện và so sánh với Pop, xem ở tab Model metrics / Artifacts của run (từ version 4) |
 | `item_table_max_abs_diff` | Sai khác giữa điểm từ `item_table.npy` (serving) và điểm tính trực tiếp — phải < 1e-5 (job tự fail nếu không) |
 
 **Số đo trên dữ liệu pipeline** (lần train đầu sau cold start, 2026-11-19,
@@ -70,7 +71,7 @@ epoch 56, epoch tốt nhất 44, ~35 giây):
 | 1 | test | 0,0795 | 0,0393 | 0,1480 | 0,0871 | 0,2293 | 0,1524 |
 
 `item_table_max_abs_diff = 0,0` (bảng `H` của serving khớp điểm tính trực
-tiếp); `n_params = 125.504`. Với ~1,4K mẫu valid, sai số chuẩn của Recall@10
+tiếp); `n_params = 125.504` (param của run, không phải metric). Với ~1,4K mẫu valid, sai số chuẩn của Recall@10
 cỡ ±0,01 và chỉ có 1 seed — đây là số minh hoạ cho demo, không phải kết luận
 thống kê. Run MLflow `ee00649754234186b7ea2ba946bfb199`.
 

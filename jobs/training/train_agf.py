@@ -14,8 +14,10 @@ comes unchanged from the experiment repo (`libs/.../ranking/agf/`,
 3. Train with `trainer.train` (leave-one-out: last item → test, second to
    last → valid, CE over every item, early stopping on valid NDCG@10).
 4. Log to MLflow (experiment + registry `REGISTERED_MODEL_NAME`):
-   params, per-epoch history, `val_*`/`test_*` metrics, the popularity
-   baseline on the same split (`baseline_pop_*`), the pickled model, the
+   params (incl. run facts: `best_epoch`, `epochs_run`, `n_params`, sizes),
+   per-epoch curves (`train_loss`, `val_*_epoch`, flat Pop baseline),
+   `val_*`/`test_*` metrics, the popularity baseline on the same split
+   (`baseline_pop_*`), two figures under `figures/`, the pickled model, the
    precomputed item table `agf/item_table.npy` that serving scores with, and
    `item_vocab.json` (`product_id -> index`, same format as before).
 
@@ -31,6 +33,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 import mlflow
+import matplotlib.pyplot as plt
 import mlflow.pytorch
 import numpy as np
 from pyiceberg.table import Table
@@ -42,6 +45,7 @@ from jobs.training.agf_inputs import (
     interactions_from_sequences,
 )
 from jobs.training.baselines import popularity_metrics
+from jobs.training.training_figures import baseline_comparison_figure, training_curves_figure
 from reco_mlops_libs.common.env import require_env
 from reco_mlops_libs.iceberg.catalog import get_catalog
 from reco_mlops_libs.iceberg.schema_contracts import gold_item_features, gold_user_features
@@ -105,24 +109,39 @@ def run_training(
             log_iceberg_snapshots(lineage_tables)
 
         result = T.train(cfg, inter, items, seed, device=device, log=lambda m: print(json.dumps({"log": m})))
-        for row in result["history"]:
-            mlflow.log_metric("train_loss", row["loss"], step=row["epoch"])
-            mlflow.log_metric("val_ndcg_at_10_epoch", row["valid_ndcg@10"], step=row["epoch"])
-
         samples = result["samples"]
+        baseline_val_raw = popularity_metrics(samples["valid"].target, catalog.train_counts)
+        baseline_test_raw = popularity_metrics(samples["test"].target, catalog.train_counts)
         baseline = {
-            **_prefixed("baseline_pop_val", popularity_metrics(samples["valid"].target, catalog.train_counts)),
-            **_prefixed("baseline_pop_test", popularity_metrics(samples["test"].target, catalog.train_counts)),
+            **_prefixed("baseline_pop_val", baseline_val_raw),
+            **_prefixed("baseline_pop_test", baseline_test_raw),
         }
+        # Per-epoch curves (step = epoch). The popularity baseline does not
+        # train, so it is logged as a flat line at every epoch: same x-axis as
+        # AGF, which lets MLflow overlay them in one chart.
+        for row in result["history"]:
+            step = row["epoch"]
+            mlflow.log_metrics({
+                "train_loss": row["loss"],
+                "val_ndcg_at_10_epoch": row["valid_ndcg@10"],
+                "val_recall_at_10_epoch": row["valid_recall@10"],
+                "baseline_pop_val_ndcg_at_10_epoch": baseline_val_raw["ndcg@10"],
+                "baseline_pop_val_recall_at_10_epoch": baseline_val_raw["recall@10"],
+            }, step=step)
+
+        # Quality numbers only. Run facts (sizes, epochs, time) are params:
+        # a single value is not a metric and only produced one-bar charts.
         metrics = {
             **_prefixed("val", result["valid"]),
             **_prefixed("test", result["test"]),
             **baseline,
-            "best_epoch": float(result["best_epoch"]),
-            "epochs_run": float(result["epochs_run"]),
-            "train_seconds": float(result["train_s"]),
-            "train_samples": float(len(samples["train"])),
-            "val_samples": float(len(samples["valid"])),
+        }
+        run_facts = {
+            "best_epoch": result["best_epoch"],
+            "epochs_run": result["epochs_run"],
+            "train_seconds": round(result["train_s"], 2),
+            "train_samples": len(samples["train"]),
+            "val_samples": len(samples["valid"]),
         }
 
         with tempfile.TemporaryDirectory(prefix="agf-export-") as tmp:
@@ -132,13 +151,23 @@ def run_training(
                     f"item_table.npy disagrees with direct scores: {exported['item_table_max_abs_diff']}")
             mlflow.log_artifacts(tmp, artifact_path="agf")
         metrics["item_table_max_abs_diff"] = float(exported["item_table_max_abs_diff"])
-        metrics["n_params"] = float(exported["n_params"])
+        run_facts["n_params"] = int(exported["n_params"])
+        mlflow.log_params(run_facts)
         mlflow.log_metrics(metrics)
+
+        for figure, name in (
+            (training_curves_figure(result["history"], result["best_epoch"], baseline_val_raw),
+             "figures/training_curves.png"),
+            (baseline_comparison_figure(result["valid"], result["test"], baseline_val_raw, baseline_test_raw),
+             "figures/agf_vs_popularity.png"),
+        ):
+            mlflow.log_figure(figure, name)
+            plt.close(figure)
         mlflow.log_dict(catalog.vocab_index, "item_vocab.json")
 
         model = result["model"].cpu().eval()
         model_info = mlflow.pytorch.log_model(model, name="model")
-        out = {"run_id": run.info.run_id, **metrics}
+        out = {"run_id": run.info.run_id, **metrics, **run_facts}
         if register:
             registered = mlflow.register_model(model_info.model_uri, REGISTERED_MODEL_NAME)
             out["registered_model"] = REGISTERED_MODEL_NAME

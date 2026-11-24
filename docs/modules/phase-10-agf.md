@@ -224,6 +224,24 @@ tháng 01/2026, sớm hơn dữ liệu Amazon 2026-11-14) nhưng extract chỉ t
 sót hoặc dlt lọc dòng theo cursor. Không ảnh hưởng demo (dữ liệu Amazon đủ).
 Chưa phải ADR vì chưa có quyết định lệch tài liệu.
 
+### 7.4 Bổ sung 2026-11-24 — làm tab Model metrics của MLflow có nghĩa
+
+Trước đó 23/25 metric chỉ log 1 giá trị nên MLflow vẽ mỗi cái thành 1 thanh
+của 1 run, và không có ảnh nào. Sửa trong `train_agf.py` (không đổi model hay
+tên metric `val_*`/`test_*`/`baseline_pop_*` mà `promote.py`/monitoring đọc):
+
+- `best_epoch`, `epochs_run`, `train_seconds`, `train_samples`, `val_samples`,
+  `n_params` chuyển từ metric sang **param** (vẫn nằm trong JSON kết quả job).
+- Log theo epoch: `train_loss`, `val_ndcg_at_10_epoch`, **mới**
+  `val_recall_at_10_epoch`, và baseline Popularity thành đường ngang
+  (`baseline_pop_val_{ndcg,recall}_at_10_epoch`).
+- 2 ảnh `figures/` trong Artifacts (đường cong huấn luyện kèm đường Pop và
+  best epoch; cột AGF so với Pop cho valid/test @10/@20).
+- `item_table_max_abs_diff` vẫn là metric (job tự fail nếu ≥ 1e-5).
+- Các run cũ (v1–v3) giữ nguyên dạng cũ; chạy từ version 4 trở đi theo dạng mới.
+- Test: `tests/model/test_train_agf_smoke.py` kiểm tra params, các step của
+  đường cong và 2 ảnh.
+
 ## 6. Danh sách file đã triển khai
 
 ### `libs/` (version 0.7.0)
@@ -254,6 +272,7 @@ Chưa phải ADR vì chưa có quyết định lệch tài liệu.
 | `jobs/training/train_agf.py` | Job train AGF + log MLflow | `EXPERIMENT_NAME = REGISTERED_MODEL_NAME`; CLI `--no-text/--epochs/--seed`; fail nếu lệch `H` ≥ 1e-5 |
 | `jobs/training/agf_inputs.py` | Gold → đầu vào AGF (thuần pandas) | `CATEGORY_PATH_SEPARATOR = " > "` |
 | `jobs/training/baselines.py` | Popularity cùng split | Hoà điểm tách theo chỉ số |
+| `jobs/training/training_figures.py` | 2 ảnh log vào run (`figures/training_curves.png`, `figures/agf_vs_popularity.png`) | matplotlib backend Agg (đã có sẵn qua `mlflow`) |
 | `jobs/training/agf_method_config.yaml` | Cấu hình đã chốt | gru4rec, d 64, L 10, dropout 0,2 |
 | `jobs/training/promote.py` | Mặc định registry mới | `--model-name` cho registry cũ |
 | `jobs/training/train_sequence.py` | GRU4Rec cũ (legacy) | Registry `reco-mlops-gru4rec` |
