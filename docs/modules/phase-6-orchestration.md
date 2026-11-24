@@ -55,7 +55,7 @@ lệch giữa 2 nơi định nghĩa, đúng tinh thần "1 nguồn sự thật" 
 nguyên tắc #3/#4 áp dụng sang cả tầng orchestration). **Tên image** thì
 không lấy được từ `config` (service chỉ khai `build:`, không có `image:`,
 `docker compose config` không tự sinh ra tên đã build) — dựng trực tiếp
-`f"{COMPOSE_PROJECT_NAME}-{compose_service}:latest"`, đúng quy ước Compose
+`f"{COMPOSE_PROJECT_NAME}-{compose_service}:latest"` (lúc viết Phase 6; từ Phase 8 đọc `image:` từ `config`, xem mục 5), đúng quy ước Compose
 đặt tên khi build (`docker compose build` log "naming to ...
 recommendation-mlops-extract-job").
 
@@ -98,9 +98,12 @@ nguyên tắc #1: DAG không xử lý logic, chỉ gọi lại job).
 
 ## 5. Việc còn để lại cho phase sau
 
-- Gắn tag `git rev-parse --short HEAD` cho mọi image — Phase 8 đã có git và
-  Jenkins push image theo SHA, **nhưng `JobDockerOperator` vẫn dùng `:latest`**
-  (`job_docker_operator.py`); việc còn lại là cho operator đọc `IMAGE_TAG`.
+- ~~Gắn tag `git rev-parse --short HEAD` cho mọi image~~ — đã xong. Từ Phase 8
+  `JobDockerOperator` đọc tên image đã phân giải từ `docker compose config`
+  (`${DOCKERHUB_USERNAME}/mlops4rec-<x>:${IMAGE_TAG}`), nên đặt `IMAGE_TAG=<sha>`
+  trong `.env` là task chạy image Jenkins đã build. Kiểm chứng 2026-11-24:
+  `dag_monitoring.model_quality_report` chạy từ `mlops4rec-monitoring:7156423`.
+  Cách dùng: `docs/runbook.md` mục "Chạy DAG bằng image của CI".
 - ~~`jobs/maintenance/compact_iceberg.py` + `dag_maintenance.py`~~ — **đã
   làm ở Phase 7**.
 - Chưa có scheduling tự động (cron) hay cross-DAG trigger — DoD hiện tại

@@ -7,14 +7,16 @@ hard-code a second copy of these environment blocks (would drift the
 moment one is edited without the other). Job services use `profiles:
 [jobs]`, so `config` needs `--profile jobs` or they're silently omitted.
 
-The image name itself is *not* in that output: every `*-job` service only
-declares `build:` (no `image:`), and `docker compose config` does not
-synthesize the tag Compose gives a build-only service — it is always
-`<project>-<service>:latest` (verified: `docker compose build` logs
-"naming to ... recommendation-mlops-extract-job"). No image carries a git
-SHA yet (no git repo in this project — see
-`docs/modules/phase-6-orchestration.md`), so `latest` is reconstructed
-directly rather than read from `config`.
+The image name is also read from that output: since Phase 8 every `*-job`
+service declares `image: ${DOCKERHUB_USERNAME:-local}/mlops4rec-<x>:${IMAGE_TAG:-dev}`,
+which `docker compose config` returns already resolved. So setting
+`IMAGE_TAG=<git sha>` in the repo's `.env` (or in the scheduler's environment)
+makes every task run the image Jenkins built and pushed for that commit
+(verified 2026-11-24: `dag_monitoring.model_quality_report` ran from
+`dlvinh755/mlops4rec-monitoring:7156423`). The config is cached per process
+(`_compose_config`), so restart the scheduler after changing the tag. The old
+`<project>-<service>:latest` name only exists for build-only services and is
+kept as a fallback.
 
 This requires the
 Airflow image to have the Docker CLI + Compose plugin installed

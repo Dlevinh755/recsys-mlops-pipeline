@@ -55,6 +55,16 @@ pipeline {
         // Lint/Unit Test cũng `docker compose run` nên kéo theo catalog-db...
         // và va cổng 5434 với stack dev nếu thiếu file này.
         COMPOSE_FILE = 'docker-compose.yml:docker-compose.override.yml:docker-compose.ci.yml'
+        // Every image this build produces is named `local/mlops4rec-<x>:<GIT_SHA>`
+        // (docker-compose.yml: `${DOCKERHUB_USERNAME:-local}/mlops4rec-<x>:${IMAGE_TAG:-dev}`).
+        // Both are forced here, not inherited: the Jenkins container's own
+        // DOCKERHUB_USERNAME (set when started with --env-file) used to leak in,
+        // so compose built `dlvinh755/...:dev` while `Build & Push` retagged
+        // `local/...:dev` — a stale image from an earlier build (found in build #8).
+        // With the commit SHA in the tag a stale image cannot exist for this
+        // commit: the image tested below is exactly the one pushed.
+        DOCKERHUB_USERNAME = 'local'
+        IMAGE_TAG = "${GIT_SHA}"
     }
 
     stages {
@@ -66,11 +76,12 @@ pipeline {
 
         stage('Build test images') {
             steps {
-                // Only the 3 images the test stages below actually run
-                // inside — local only, not pushed. `serving`/`monitoring`/
-                // `airflow`/`ui` have no test stage exercising them yet, so
-                // building them only happens in `Build & Push Images`.
-                sh 'docker compose build transform-job training-job materialize-job'
+                // The 5 job images (the 3 the test stages run inside, plus
+                // `extract-job` and `monitoring-job`). `serving`/`airflow`/`ui`
+                // are built by `docker compose up -d --build` in the
+                // Integration Test stage. `Build & Push Images` only retags
+                // and pushes these exact images — it never rebuilds.
+                sh 'docker compose build transform-job training-job materialize-job extract-job monitoring-job'
             }
         }
 
@@ -154,8 +165,14 @@ pipeline {
                 MLFLOW_TRACKING_URI = 'file:///tmp/mlruns'
             }
             steps {
+                // --no-deps: without it `run` starts training-job's depends_on
+                // (mlflow, minio, lakekeeper, redis...) AFTER the Integration
+                // Test stage already ran `down`, and nothing tears them down
+                // again — builds #7 and #8 each left ~9 containers (mlflow
+                // 1.6 GB) running, which later starved build #9 (slow tests,
+                // DNS errors).
                 sh '''
-                    docker compose --profile jobs run --rm \
+                    docker compose --profile jobs run --rm --no-deps \
                       -e MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI \
                       --entrypoint python training-job -m pytest tests/model -v
                 '''
@@ -178,64 +195,24 @@ pipeline {
                     sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
                     script {
                         // `failFast` left at its declarative default
-                        // (false) on purpose — these 8 builds are fully
+                        // (false) on purpose — these 8 pushes are fully
                         // independent, so surfacing every failure in one
                         // run beats stopping at the first and re-running to
                         // find the next (PHONG-VAN-QA-BAO-VE.md mục 4).
-                        // transform/materialize/training: retag the exact
-                        // image already built+tested above — never rebuild
-                        // for push ("test one artifact, ship a different
-                        // one" is the anti-pattern this avoids).
-                        parallel(
-                            extract: {
+                        // Retag only, never rebuild for push: "test one
+                        // artifact, ship a different one" is the anti-pattern
+                        // this avoids. `docker tag` fails loudly if the
+                        // `<GIT_SHA>` image of this build does not exist.
+                        def images = ['extract', 'transform', 'materialize', 'training',
+                                      'serving', 'airflow', 'monitoring', 'ui']
+                        parallel images.collectEntries { name ->
+                            [(name): {
                                 sh """
-                                    docker build -t \$DOCKERHUB_CREDS_USR/mlops4rec-extract:${GIT_SHA} -f infra/docker/extract/Dockerfile .
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-extract:${GIT_SHA}
+                                    docker tag local/mlops4rec-${name}:${GIT_SHA} \$DOCKERHUB_CREDS_USR/mlops4rec-${name}:${GIT_SHA}
+                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-${name}:${GIT_SHA}
                                 """
-                            },
-                            transform: {
-                                sh """
-                                    docker tag local/mlops4rec-transform:dev \$DOCKERHUB_CREDS_USR/mlops4rec-transform:${GIT_SHA}
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-transform:${GIT_SHA}
-                                """
-                            },
-                            materialize: {
-                                sh """
-                                    docker tag local/mlops4rec-materialize:dev \$DOCKERHUB_CREDS_USR/mlops4rec-materialize:${GIT_SHA}
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-materialize:${GIT_SHA}
-                                """
-                            },
-                            training: {
-                                sh """
-                                    docker tag local/mlops4rec-training:dev \$DOCKERHUB_CREDS_USR/mlops4rec-training:${GIT_SHA}
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-training:${GIT_SHA}
-                                """
-                            },
-                            serving: {
-                                sh """
-                                    docker build -t \$DOCKERHUB_CREDS_USR/mlops4rec-serving:${GIT_SHA} -f infra/docker/serving/Dockerfile .
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-serving:${GIT_SHA}
-                                """
-                            },
-                            airflow: {
-                                sh """
-                                    docker build -t \$DOCKERHUB_CREDS_USR/mlops4rec-airflow:${GIT_SHA} -f infra/docker/airflow/Dockerfile .
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-airflow:${GIT_SHA}
-                                """
-                            },
-                            monitoring: {
-                                sh """
-                                    docker build -t \$DOCKERHUB_CREDS_USR/mlops4rec-monitoring:${GIT_SHA} -f infra/docker/monitoring/Dockerfile .
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-monitoring:${GIT_SHA}
-                                """
-                            },
-                            ui: {
-                                sh """
-                                    docker build -t \$DOCKERHUB_CREDS_USR/mlops4rec-ui:${GIT_SHA} -f infra/docker/ui/Dockerfile .
-                                    docker push \$DOCKERHUB_CREDS_USR/mlops4rec-ui:${GIT_SHA}
-                                """
-                            },
-                        )
+                            }]
+                        }
                     }
                 }
             }
@@ -244,6 +221,9 @@ pipeline {
 
     post {
         always {
+            // Safety net: whatever a stage started under this build's
+            // COMPOSE_PROJECT_NAME is removed even if a stage forgets to.
+            sh 'docker compose down --volumes --remove-orphans || true'
             sh 'docker logout || true'
         }
     }

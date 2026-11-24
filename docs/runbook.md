@@ -27,6 +27,24 @@ extract → build_bronze → build_silver → build_gold → build_user_features
       → similar_items }
 ```
 
+## Chạy DAG bằng image của CI
+
+Mặc định (`IMAGE_TAG=dev`) Airflow chạy image build local. Để chạy đúng image
+Jenkins đã build và đẩy lên Docker Hub cho một commit (tag là git SHA ngắn,
+xem log build hoặc `git rev-parse --short HEAD`):
+
+```powershell
+# 1. .env: DOCKERHUB_USERNAME=<tên-docker-hub>  và  IMAGE_TAG=<sha>
+docker compose --profile jobs pull extract-job transform-job materialize-job training-job monitoring-job
+docker compose restart airflow-scheduler
+```
+
+Restart scheduler vì `JobDockerOperator` cache `docker compose config` theo
+tiến trình. Kiểm tra: log task có dòng `Starting docker container from image
+<tên>/mlops4rec-<x>:<sha>`. Quay lại bản local: đặt `IMAGE_TAG=dev`, restart
+scheduler. Image `serving`/`ui`/`airflow` không do DAG chạy; các service đó
+đổi tag khi `docker compose up -d` với `IMAGE_TAG` mới.
+
 ## Rollback model thủ công
 
 Model production được chọn qua alias MLflow (`production`), không phải

@@ -21,6 +21,13 @@ Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silve
 
 ## Trạng thái tổng thể
 
+**2026-11-24 — Sửa Jenkins đợt 2 (ADR 0011 mục 5–7), chưa push:** `Build & Push`
+chỉ tag lại image tag SHA đã test (trước đó push nhầm bản cũ cho 3 image),
+Model Smoke Test `--no-deps` + `down` ở `post.always` (build #7/#8 bỏ sót ~9
+container mỗi lần, làm build #9 fail), Jenkins có buildx. Ghim `fastapi`/`uvicorn`
+trong `serving.txt`. Airflow đã đọc `IMAGE_TAG` từ Phase 8 (kiểm chứng task chạy
+từ image `:7156423`), mô tả "latest" cũ chỉ là tài liệu lỗi thời.
+
 **2026-11-24 — Bảo trì Iceberg (ADR 0012):** `compact_iceberg` compact thêm Silver,
 job mới `expire_snapshots` gỡ snapshot quá 7 ngày và xoá file mà snapshot đó
 dùng riêng (PyIceberg 0.12 chỉ sửa metadata, đã đo). 6 integration test pass,
@@ -82,10 +89,10 @@ và ADR 0011); `pollSCM` đã xác nhận ở build #8.
 Không còn phase bắt buộc; các điểm dưới đây là hạn chế đã xác nhận qua rà
 soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
 
-1. **Airflow vẫn chạy image tag `latest`** — `airflow/plugins/operators/
-   job_docker_operator.py` dựng tên image `<project>-<service>:latest`, chưa
-   theo nguyên tắc #8 (tag git SHA) dù project đã có git. Jenkins đã push
-   image tag SHA, nhưng DAG không dùng chúng.
+1. ~~Airflow vẫn chạy image tag `latest`~~ — mô tả này đã lỗi thời từ Phase 8:
+   `JobDockerOperator` đọc tên image từ `docker compose config` nên theo
+   `IMAGE_TAG` trong `.env`. Đã kiểm chứng 2026-11-24 (task chạy từ image
+   `:7156423`); cách dùng ở `runbook.md` mục "Chạy DAG bằng image của CI".
 2. ~~CI/CD chưa chạy thật qua Jenkins~~ — đã chạy xanh 2026-11-24 (ADR 0011);
    `GIT_SHA` đã xác nhận. `pollSCM` đã xác nhận bằng build #8 (tự chạy, xanh).
 3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
@@ -96,8 +103,8 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
    "mua" (chưa có impression/click để tính online metric).
 5. **Chưa có Alertmanager.** ~~`expire_snapshots`~~ đã làm (ADR 0012); chưa chạy xoá thật vì chưa snapshot nào quá 7 ngày.
-6. `fastapi`/`uvicorn`/`redis` trong `requirements/serving.txt` chưa ghim
-   version.
+6. ~~`fastapi`/`uvicorn` chưa ghim~~ — đã ghim 2026-11-24 (`fastapi==0.163.2`,
+   `uvicorn[standard]==0.34.0`, ADR 0007); `redis` cố ý không ghim vì feast cap `<5`.
 
 ## Lịch sử các phase trước Phase 8
 

@@ -48,8 +48,11 @@ giữa 2 version cách nhau 11 minor release.
 `feast[redis]==0.55.0` giới hạn `redis<5`, xung đột với pin `==5.2.1` ban
 đầu. Để `feast` tự kéo bản tương thích (`redis==4.6.0`) — đã xác nhận đủ
 mọi method `serving/` cần (`get/set/delete/rpush/ltrim/expire/lrange`).
-`fastapi`/`uvicorn` cũng không ghim cứng, lý do tương tự (cần chỗ cho pip
-tự giải đúng bản tương thích `starlette`).
+`fastapi`/`uvicorn` lúc đầu cũng không ghim cứng, lý do tương tự (cần chỗ cho pip
+tự giải đúng bản tương thích `starlette`). **Cập nhật 2026-11-24**: đã ghim
+`fastapi==0.163.2`, `uvicorn[standard]==0.34.0` đúng các bản pip đã giải ra
+(kéo theo `starlette==0.52.1`, dưới trần `<1` của mlflow-skinny); image `serving`
+build lại bình thường, `pip check` sạch. `redis` vẫn không ghim (feast cap `<5`).
 
 ## Lý do
 

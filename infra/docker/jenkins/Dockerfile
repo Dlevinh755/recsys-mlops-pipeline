@@ -18,9 +18,15 @@ RUN apt-get update \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
         > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin docker-buildx-plugin \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# `docker-buildx-plugin` makes `docker build` / `docker compose build` use
+# BuildKit (without it the CLI falls back to the deprecated classic builder).
+# BuildKit shares the host daemon's cache with builds made on the host, builds
+# the 3 airflow services (same Dockerfile) once, and runs layers in parallel.
+# Measured before: build #6 spent 9.6 min in `up --build` on a cold classic cache.
 
 # Pinned so a fresh `docker compose build jenkins` doesn't silently change
 # which plugins are installed between runs.

@@ -35,6 +35,26 @@ qua `docker.sock`, chạy bằng user mặc định của image `jenkins`. Cho t
    `/tmp` của container vì workspace cố định sẽ giữ state cũ giữa các build
    (cùng cơ chế gây ra việc mất 8 dòng fixture, `phase-10-agf.md` mục 7.3).
 
+5. **Image của build mang tag `<GIT_SHA>`, và `Build & Push` chỉ tag lại**.
+   Pipeline ép `DOCKERHUB_USERNAME=local`, `IMAGE_TAG=<GIT_SHA>` (không thừa
+   hưởng từ môi trường container Jenkins); stage `Build test images` build thêm
+   `extract` và `monitoring`; 8 image đẩy lên Docker Hub đều là image đã build và
+   test trong cùng build. Lý do: biến `DOCKERHUB_USERNAME` của container Jenkins
+   (có khi khởi động bằng `--env-file`) làm Compose build ra
+   `dlvinh755/...:dev`, trong khi `Jenkinsfile` tag lại `local/...:dev` — build
+   #7 và #8 đã push bản cũ còn sót từ build #6 cho `transform`, `materialize`,
+   `training`. Với SHA trong tên, image cũ không thể tồn tại cho commit mới và
+   `docker tag` fail rõ ràng nếu thiếu.
+6. **Image Jenkins có `docker-buildx-plugin`** (BuildKit thay trình build cũ;
+   chung cache với daemon host, build 3 service Airflow cùng Dockerfile gọn hơn).
+7. **Model Smoke Test chạy với `--no-deps`, và có `docker compose down` ở
+   `post.always` cấp pipeline.** Không có `--no-deps`, `run` bật lại các
+   service phụ thuộc của `training-job` sau khi stage Integration Test đã `down`
+   và không ai tắt: build #7 và #8 mỗi lần bỏ sót ~9 container (mlflow 1,6 GB).
+   Chúng làm build #9 chạy 15 phút thay vì 1 phút ở bước integration test, rồi
+   `Temporary failure in name resolution: lakekeeper`. Dọn hai stack đó xong, bộ
+   integration test (23 test) chạy 2,5 phút trên stack cô lập.
+
 ## Lý do
 
 Các phương án đã loại:

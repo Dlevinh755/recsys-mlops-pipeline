@@ -247,7 +247,7 @@ Số liệu phụ (tham khảo): `similar_items` job xử lý 1565/1565 item;
 |---|---|---|
 | `infra/docker/serving/Dockerfile` | Image serving | `torch` cài riêng qua `--index-url` CPU-only |
 | `infra/docker/ui/Dockerfile` | Image ui | Nhẹ, không torch/feast/mlflow |
-| `requirements/serving.txt` | Dependency serving | `feast[redis,aws]==0.55.0` (hạ version, ADR 0007), `fastapi`/`uvicorn`/`redis` không ghim cứng |
+| `requirements/serving.txt` | Dependency serving | `feast[redis,aws]==0.55.0` (hạ version, ADR 0007), `fastapi==0.163.2`, `uvicorn[standard]==0.34.0` ghim từ 2026-11-24 (ADR 0007); `redis` không ghim vì feast cap `<5` |
 | `requirements/ui.txt` | Dependency ui | `streamlit`, `requests` |
 | `requirements/materialize.txt` | Đã sửa | `feast[redis,aws]` hạ xuống `0.55.0` (đồng bộ với serving, ADR 0007) |
 | `requirements/training.txt` | Đã sửa | Thêm `redis` cài riêng trong Dockerfile (không qua file này, tránh lẫn index CPU-only) |

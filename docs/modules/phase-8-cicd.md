@@ -29,8 +29,10 @@ thực tế đã code.
 `PHONG-VAN-QA-BAO-VE.md` mục 4 cho lý do đầy đủ từng quyết định):
 
 1. **Prepare** — tạo `.env` từ `.env.example` nếu chưa có.
-2. **Build test images** — `transform-job`/`training-job`/`materialize-job`
-   (3 image cần để chạy test), local, chưa push.
+2. **Build test images** — 5 image job: `transform`/`training`/`materialize`
+   (3 image chạy test) cộng `extract`/`monitoring` (từ 2026-11-24, để stage
+   `Build & Push` chỉ cần tag lại). Chưa push. Jenkins có `docker-buildx-plugin`
+   nên dùng BuildKit, chung cache với daemon của máy host.
 3. **Lint** — `ruff check` qua bind-mount checkout thật (`-v $(pwd):/repo:ro`)
    trong `transform-job`, vì `jobs/`/`libs/`/`serving/`/`airflow/`/`ui/`
    không nằm cùng 1 image job nào.
@@ -50,12 +52,22 @@ thực tế đã code.
    `DLT_PIPELINES_DIR=/tmp/dlt-pipelines` để state dlt không nằm trong
    workspace cố định và không lọt sang build sau (xem `phase-10-agf.md` 7.3).
 6. **Model Smoke Test** — `MLFLOW_TRACKING_URI=file:///tmp/mlruns`, không
-   `docker compose up` gì (ADR 0005 update 2026-09-15).
+   `docker compose up` gì (ADR 0005 update 2026-09-15). Từ 2026-11-24 chạy với
+   `run --no-deps`: thiếu cờ này `run` bật lại mlflow/minio/lakekeeper... sau
+   khi stage 5 đã `down`, và build #7, #8 mỗi lần bỏ sót ~9 container (mlflow
+   1,6 GB) chạy mãi, làm build #9 chậm và lỗi DNS.
 7. **Build & Push Images** — 8 image song song (`failFast` mặc định
-   `false`, cố ý), `transform`/`materialize`/`training` **tag lại** image đã
-   build+test ở stage 2 (không build lại — tránh "test 1 bản, ship 1 bản
-   khác"); `extract`/`serving`/`airflow`/`monitoring`/`ui` build lần đầu tại
-   đây. Bọc `catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE')` —
+   `false`, cố ý), cả 8 chỉ **tag lại và push** image đã build+test trong cùng
+   build, không build lại ("test 1 bản, ship 1 bản khác"). Từ 2026-11-24 mọi
+   image của build mang tên `local/mlops4rec-<x>:<GIT_SHA>` (pipeline ép
+   `DOCKERHUB_USERNAME=local`, `IMAGE_TAG=<GIT_SHA>`): `transform`/`training`/
+   `materialize`/`extract`/`monitoring` build ở stage 2, `serving`/`airflow`/
+   `ui` build bởi `up -d --build` ở stage 5. Trước đó `Jenkinsfile` tag lại
+   `local/...:dev` trong khi Jenkins build ra `dlvinh755/...:dev` (biến môi
+   trường của container Jenkins lọt vào Compose), nên build #7 và #8 đã push
+   bản **cũ còn sót từ build #6** cho `transform`/`materialize`/`training`
+   (nội dung khác bản đúng chỉ ở một docstring, nhưng tag SHA không khớp
+   code). Bọc `catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE')` —
    thiếu `dockerhub-creds` thật không làm hỏng cả pipeline, chỉ stage này
    fail rõ ràng (xem mục 5).
 
