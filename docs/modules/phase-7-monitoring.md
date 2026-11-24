@@ -83,7 +83,7 @@ Tự lấy user/item thật qua `GET /users` + response `/recommend/homepage`
 Đã hứa "dời sang Phase 7" ở cả `phase-2-lakehouse.md` và
 `phase-6-orchestration.md` — làm nốt lần này. Chỉ compact **Bronze**
 (`bronze.products`/`bronze.interactions`, append-only, tích tiểu file theo
-từng lần extract) — Silver/Gold đã `overwrite()` toàn bộ mỗi lần chạy nên
+từng lần extract) — Gold `overwrite()` toàn bộ mỗi lần chạy (Silver từ 2026-11-24 là upsert tăng dần, ADR 0010, chưa được compact — xem phase-2 mục 2.9) nên
 không cần. Kiểm tra trực tiếp trên `pyiceberg==0.12.0` (bản đã pin) trước
 khi code: `table.maintenance` mới chỉ có `expire_snapshots`, chưa có action
 `rewrite_data_files`/compaction native — nên compact bằng cách đọc toàn bộ

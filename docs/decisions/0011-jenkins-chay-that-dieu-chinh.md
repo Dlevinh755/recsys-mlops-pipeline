@@ -1,0 +1,72 @@
+# 0011 — Điều chỉnh Jenkins khi chạy pipeline thật lần đầu
+
+- **Trạng thái**: Đã áp dụng
+- **Ngày**: 2026-11-24
+- **Phase liên quan**: Phase 8 (CI/CD)
+
+## Bối cảnh
+
+ADR 0005 chốt Jenkins với **một `agent any`** cho cả pipeline, sibling-container
+qua `docker.sock`, chạy bằng user mặc định của image `jenkins`. Cho tới
+2026-11-24 các stage mới chỉ chạy tay bằng đúng lệnh của `Jenkinsfile`. Lần
+đầu chạy qua Jenkins thật (build #1–#7) lộ ra bốn chỗ thiết kế gốc không chạy
+được. Build #7 (commit `87b0837`) xanh toàn bộ 6 stage sau khi sửa cả bốn.
+
+## Quyết định
+
+1. **Container Jenkins chạy bằng `root`** (`user: root` trong
+   `infra/jenkins/docker-compose.jenkins.yml`). Trên Docker Desktop,
+   `/var/run/docker.sock` không thuộc nhóm của user `jenkins` nên mọi lệnh
+   `docker` báo `permission denied while trying to connect to the docker API`.
+2. **`COMPOSE_FILE` đặt ở cấp `environment` của pipeline**, gồm cả
+   `docker-compose.ci.yml`. Stage Lint/Unit Test cũng gọi `docker compose run`
+   nên kéo theo `catalog-db`...; thiếu file CI thì publish cổng 5434 và va với
+   stack dev.
+3. **Workspace cố định** `/srv/jenkins-ws/recsys-mlops` (`agent { node {
+   customWorkspace ... } }` thay cho `agent any`), kèm mount cùng đường dẫn
+   `/srv/jenkins-ws:/srv/jenkins-ws` vào container Jenkins. Bind mount tương
+   đối trong `docker-compose.yml` do **daemon của máy host** phân giải; đường
+   dẫn mặc định dưới `/var/jenkins_home` không tồn tại ở host nên Docker tạo
+   thư mục rỗng (`minio-init` thoát mã 126).
+4. **Thêm bước `extract-job` vào stage Integration Test**, trước
+   `build_bronze`, với `DLT_PIPELINES_DIR=/tmp/dlt-pipelines`. Tài liệu Phase 8
+   ghi pipeline chạy `extract→...` nhưng `Jenkinsfile` chưa từng có bước này, nên
+   Bronze/Gold rỗng và `test_train_serve_skew` fail (build #6). State dlt đặt ở
+   `/tmp` của container vì workspace cố định sẽ giữ state cũ giữa các build
+   (cùng cơ chế gây ra việc mất 8 dòng fixture, `phase-10-agf.md` mục 7.3).
+
+## Lý do
+
+Các phương án đã loại:
+
+- **`group_add` đúng GID của socket** thay cho `root`: chặt hơn nhưng GID khác
+  nhau theo máy/Docker Desktop, không ổn định cho đồ án chạy trên máy cá nhân.
+- **Agent Docker riêng cho từng stage**: ADR 0005 đã loại vì cùng vấn đề bind
+  mount, không đổi.
+- **Mount `${WORKSPACE}` mặc định**: không có đường dẫn trùng giữa Jenkins và
+  daemon host, chính là lỗi của mục 3.
+
+## Hệ quả
+
+- **Ngoại lệ so với ADR 0005 / `bao-cao-ky-thuat.md`**: Jenkins chạy `root` và
+  có quyền điều khiển Docker của host. Chấp nhận được vì Jenkins chỉ chạy
+  local; không dùng cách này trên máy chủ dùng chung.
+- **Chỉ một workspace**: nhiều nhánh/PR build song song dùng chung
+  `/srv/jenkins-ws/recsys-mlops`. `disableConcurrentBuilds` chỉ chặn cùng một
+  nhánh. Với đồ án chỉ có `main` thì không ảnh hưởng; thêm nhánh thì phải xử lý
+  lại.
+- Cần dựng Jenkins bằng `-p mlops4rec-jenkins --env-file .env` (xem `README.md`),
+  nếu không mount, mật khẩu admin và token Docker Hub không vào container.
+- Build #7: 6/6 stage xanh trong khoảng 16,7 phút, 8 image đẩy lên Docker Hub
+  với tag `87b0837`. Build #6 (cache trình build của Jenkins còn lạnh) mất
+  khoảng 20 phút trong đó `docker compose up -d --build` chiếm 9,6 phút; ở
+  build #7 bước này chỉ 1,5 phút và build 3 image test còn khoảng 1 phút (từ
+  4,7 phút). Thời gian lúc này nằm ở `Build & Push Images` (khoảng 9,5
+  phút). Image Airflow vẫn bị build 3 lần song song khi cache lạnh (3 service
+  cùng Dockerfile); chưa tối ưu.
+
+## Tham chiếu
+
+`Jenkinsfile`, `infra/jenkins/docker-compose.jenkins.yml`,
+`docs/decisions/0005-jenkins-thay-github-actions.md`,
+`docs/modules/phase-8-cicd.md` (mục 2.x và 5), `docs/runbook.md`.

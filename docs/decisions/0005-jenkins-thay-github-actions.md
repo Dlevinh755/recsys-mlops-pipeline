@@ -158,3 +158,11 @@ vẫn ở giai đoạn thiết kế (Phase 8 chưa bắt đầu), sửa trực t
 - Bảng đầy đủ "stage nào cần service thật, test cụ thể file/hàm nào" ở
   `PHONG-VAN-QA-BAO-VE.md` mục 4 (câu "Cụ thể từng stage/service test cái
   gì?") — file này chỉ giữ bản tóm tắt quyết định, không lặp lại bảng.
+
+## Cập nhật 2026-11-24
+
+Pipeline đã chạy thật qua Jenkins (build #7 xanh). Bốn điều chỉnh khi chạy thật
+(chạy `root`, `COMPOSE_FILE` cho mọi stage, workspace cố định thay cho
+`agent any`, thêm bước extract) ghi ở
+[ADR 0011](0011-jenkins-chay-that-dieu-chinh.md); ở các đoạn trên, "agent any"
+là nội dung lịch sử lúc viết ADR.

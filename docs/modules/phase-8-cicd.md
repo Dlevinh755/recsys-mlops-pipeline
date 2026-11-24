@@ -140,26 +140,22 @@ implement, không đổi quyết định kiến trúc nào.
 
 | Yêu cầu | Kết quả |
 |---|---|
-| CI chạy tự động trên mỗi commit, gồm model-smoke-test | Jenkinsfile có `pollSCM`, đã validate cú pháp qua chính Jenkins linter; **chưa trigger được qua commit thật** vì chưa có remote Git (xem mục 5) — mọi stage đã chạy thật thủ công với cùng lệnh Jenkinsfile dùng, tất cả pass (16 unit test, 5 integration test, 1 model-smoke-test, 1 skew test, 1 model-reload test, lint sạch) |
+| CI chạy tự động trên mỗi commit, gồm model-smoke-test | Jenkinsfile có `pollSCM`, đã validate cú pháp qua chính Jenkins linter. **Đã chạy thật qua Jenkins 2026-11-24**: build #7 (commit `87b0837`, kích tay qua API; `pollSCM` chưa được thử bằng commit tự phát hiện) xanh cả 6 stage trong khoảng 16,7 phút — lint sạch, unit test pass ở cả 3 image (1 + 4 + 24 test), 17 integration test, 1 skew test, 2 model smoke test, 8 image đẩy lên Docker Hub tag `87b0837`. Sáu build trước fail vì bốn chỗ lệch thiết kế, ghi ở ADR 0011 |
 | Tài liệu phản ánh đúng code đã có | ✅ — toàn bộ 4 file mới + module doc này viết sau khi code xong |
 
 ## 5. Việc còn để lại
 
-- **Git remote đã có** (cập nhật 2026-10-11): `origin` =
-  `github.com/Dlevinh755/recsys-mlops-pipeline`, nhánh `main` đã push. Chưa
-  có Docker Hub token thật và chưa có job Jenkins → stage `Build & Push
-  Images` sẽ fail rõ ràng (không chặn pipeline nhờ `catchError`) cho tới khi
-  set `DOCKERHUB_TOKEN` thật trong `.env`. Việc còn lại thuần thao tác tay,
-  không phải code: (1) tạo Docker Hub Access Token, set
-  `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; (2) `docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build`,
-  tạo 1 job Multibranch Pipeline trỏ vào repo `origin` qua Jenkins UI.
+- **Jenkins đã chạy thật** (2026-11-24, build #7 xanh — ADR 0011). `GIT_SHA`
+  trong `Jenkinsfile` đã được xác nhận đúng ngữ cảnh checkout (tag
+  `87b0837` khớp commit). Dựng Jenkins: lệnh ở `README.md`/`runbook.md` (cần
+  `-p mlops4rec-jenkins --env-file .env`); job Multibranch Pipeline
+  `recsys-mlops` trỏ `origin` đã tạo trong Jenkins UI. Chưa kiểm chứng
+  `pollSCM` tự phát hiện commit mới (build #7 kích tay).
+- **Chưa kiểm tra**: image đẩy lên Docker Hub có đang để public hay private
+  (mặc định repo Docker Hub mới là public) — việc tùy chọn của người dùng.
 - **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên
   image `:latest` (xem `phase-6-orchestration.md`), nên image Jenkins push
   theo SHA chưa được DAG tiêu thụ.
-- Tag `git rev-parse --short HEAD` cho image giờ đã khả thi (có git) nhưng
-  vẫn cần CI thật chạy ít nhất 1 lần để xác nhận `GIT_SHA` trong
-  `Jenkinsfile` (`sh 'git rev-parse --short HEAD'`) hoạt động đúng trong
-  ngữ cảnh Jenkins Git plugin checkout (chưa kiểm chứng — cần remote thật).
 - `expire_snapshots()` cho `compact_iceberg.py` (Phase 7) vẫn để lại.
 
 ## 6. Danh sách file đã triển khai

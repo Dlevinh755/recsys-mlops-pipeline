@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-24 (Silver tăng dần — ADR 0010; ghim s3fs 2026.1.0 — ADR 0009)
+Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silver tăng dần — ADR 0010; ghim s3fs 2026.1.0 — ADR 0009)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -20,6 +20,15 @@ Cập nhật lần cuối: 2026-11-24 (Silver tăng dần — ADR 0010; ghim s3f
 | 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; 8 dòng fixture: đã rõ nguyên nhân (7.3) | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
+
+**2026-11-24 — Jenkins chạy thật (ADR 0011):** build #7 (commit `87b0837`) xanh
+cả 6 stage trong khoảng 16,7 phút, gồm 17 integration test, skew test, 2 model
+smoke test (AGF) và đẩy 8 image lên Docker Hub tag `87b0837`. Sáu build trước
+lộ bốn chỗ lệch thiết kế (chạy `root`, `COMPOSE_FILE` cho mọi stage, workspace
+cố định, thiếu bước extract) — đã sửa và ghi ở ADR 0011. Cùng ngày: nguyên nhân
+8 dòng fixture không vào Bronze là state dlt cục bộ cũ (`make clean` đã sửa,
+`phase-10-agf.md` mục 7.3); kiểm tra bộ phát hiện drift của Evidently trên lô
+tổng hợp (7.4).
 
 **2026-11-24 — Silver tăng dần (ADR 0010, không đổi trạng thái phase nào):**
 `build_silver` chỉ xử lý Bronze nạp sau watermark `_ingested_at` lưu trong
@@ -38,9 +47,8 @@ similar_items, serving nạp model v1 và UI gợi ý đúng (AGF `val_ndcg_at_1
 0,0913 vs Pop 0,0444). Kết quả chi tiết: `phase-10-agf.md` mục 7,
 `model_card.md`. **2026-11-24**: Airflow (`dag_transform`, `dag_training`) và monitoring
 (Prometheus/Grafana, `dag_monitoring`) đã chạy với model mới — `phase-10-agf.md`
-mục 7.4. **Việc còn lại**: chạy lại
-Jenkins sau khi push Jenkinsfile đã sửa (build #6 fail vì pipeline thiếu bước extract, Model
-Smoke Test chạy tay pass); demo drift thật bằng lô dữ liệu khác phân phối.
+mục 7.4. **Việc còn lại**: demo drift thật bằng lô dữ liệu khác phân phối
+qua `dag_monitoring`.
 
 
 **Toàn bộ MVP1 (Phase 0–8) đã hoàn thành.** Không còn phase nào "kế tiếp"
@@ -59,10 +67,8 @@ test mới — train/serve skew (Gold vs Feast/Redis thật) và model-reload
 (train 2 version thật, flip alias `production`, xác nhận `serving` tự nhận
 version mới không cần restart). 4 tài liệu mới: `architecture.md`,
 `runbook.md` (có quy trình rollback model), `data_dictionary.md`,
-`model_card.md`. Việc còn thuần thao tác tay (không phải code): tạo repo
-GitHub + Docker Hub token thật, tạo job Multibranch Pipeline trỏ vào —
-`Build & Push Images` sẽ fail rõ (không chặn pipeline, `catchError`) cho
-tới lúc đó — xem `phase-8-cicd.md` mục 5.
+`model_card.md`. Đã chạy thật qua Jenkins từ 2026-11-24 (xem đầu mục này
+và ADR 0011); việc còn lại: kiểm chứng `pollSCM` tự phát hiện commit.
 
 ## Việc còn lại để hoàn thiện project (rà soát 2026-10-11)
 
@@ -73,9 +79,8 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
    job_docker_operator.py` dựng tên image `<project>-<service>:latest`, chưa
    theo nguyên tắc #8 (tag git SHA) dù project đã có git. Jenkins đã push
    image tag SHA, nhưng DAG không dùng chúng.
-2. **CI/CD chưa chạy thật qua Jenkins** — repo đã có remote `origin`
-   (GitHub), còn thiếu Docker Hub token, dựng Jenkins và tạo job Multibranch
-   Pipeline; chưa kiểm chứng `GIT_SHA` trong ngữ cảnh Jenkins checkout.
+2. ~~CI/CD chưa chạy thật qua Jenkins~~ — đã chạy xanh 2026-11-24 (ADR 0011);
+   `GIT_SHA` đã xác nhận. Còn: `pollSCM` chưa được thử bằng commit tự phát hiện.
 3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
    (AGF + baseline popularity log cùng run); chưa có số đo thật trên Cell
    Phones. `test.parquet`/`incoming/` vẫn chưa nạp.
@@ -126,3 +131,9 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
 - [0008](decisions/0008-agf-gru4rec-thay-gru4rec.md) — AGF-GRU4Rec thay
   GRU4Rec chỉ-ID làm model chính (chọn ở repo thực nghiệm), thêm cột
   `category_path` (Phase 10)
+- [0009](decisions/0009-pin-s3fs-remote-signing.md) — Ghim `s3fs`/`fsspec`
+  2026.1.0 cho image dùng PyIceberg + remote signing (Lakekeeper)
+- [0010](decisions/0010-silver-incremental.md) — Silver tăng dần (watermark
+  `_ingested_at` + upsert) thay cho tính lại toàn bộ
+- [0011](decisions/0011-jenkins-chay-that-dieu-chinh.md) — Điều chỉnh Jenkins
+  khi chạy thật: `root`, `COMPOSE_FILE` mọi stage, workspace cố định, bước extract

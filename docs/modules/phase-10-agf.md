@@ -173,8 +173,8 @@ Không thêm dependency vào image `serving`.
    `training-job` thành công, train có nhánh text chạy được.
 5. ~~`ui/app.py` còn câu "GRU4Rec"~~ — đã sửa thành "AGF-GRU4Rec".
 6. ~~8 dòng interaction fixture (`id` 14749–14756) không vào Bronze~~ — đã tìm ra nguyên nhân (state dlt cục bộ cũ) và sửa `make clean`; không khôi phục dòng ở môi trường hiện tại, mục 7.3.
-7. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, Jenkins chưa
-   chạy thật, drift → retrain chưa khép kín) không đổi.
+7. Các hạn chế cũ ở `STATUS.md` (image tag `latest` trong Airflow, drift → retrain
+   chưa khép kín) không đổi. Jenkins đã chạy thật 2026-11-24 (ADR 0011).
 
 ## 7. Kết quả chạy thật (2026-11-19, test tay từng bước)
 
@@ -287,7 +287,7 @@ Với Silver thật (14.769 dòng): `dataset_drift=False`, cả `rating` và
 thước (rating lệch thấp, 60% item lạ): `dataset_drift=True`, cả 2 cột drift
 (điểm 0,447 và 0,524). Mới chứng minh bộ phát hiện hoạt động; **chưa** chứng
 minh trên lô dữ liệu thật khác phân phối (`test.parquet`/`incoming/`) chạy qua
-`dag_monitoring`. Jenkins: xem `phase-8-cicd.md` mục Integration Test.
+`dag_monitoring`. Jenkins đã chạy xanh với model AGF (build #7, `phase-8-cicd.md` mục 4).
 
 ## 6. Danh sách file đã triển khai
 
