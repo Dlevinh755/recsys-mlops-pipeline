@@ -101,7 +101,11 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
    `test.parquet`/`incoming/` vẫn chưa nạp.
 4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
-   "mua" (chưa có impression/click để tính online metric).
+   "mua" (chưa có impression/click để tính online metric). Spec:
+   `side_doc/SPEC-retrain-loop-and-promote-gate.md`. **Phần A đã làm
+   2026-11-24** (cổng promote so cùng split, ADR 0013; chưa commit); phần B
+   (`retrain_decision`, `refresh_baseline`, `dag_continuous_training`) chưa làm,
+   phần F (đa ứng viên) tuỳ chọn.
 5. **Chưa có Alertmanager.** ~~`expire_snapshots`~~ đã làm (ADR 0012); chưa chạy xoá thật vì chưa snapshot nào quá 7 ngày.
 6. ~~`fastapi`/`uvicorn` chưa ghim~~ — đã ghim 2026-11-24 (`fastapi==0.163.2`,
    `uvicorn[standard]==0.34.0`, ADR 0007); `redis` cố ý không ghim vì feast cap `<5`.
@@ -154,3 +158,5 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
   khi chạy thật: `root`, `COMPOSE_FILE` mọi stage, workspace cố định, bước extract
 - [0012](decisions/0012-iceberg-maintenance-expire-snapshots.md) — Bảo trì Iceberg:
   compact Silver và `expire_snapshots` có xoá file
+- [0013](decisions/0013-promote-so-cung-split.md) — Cổng promote chấm champion trên
+  cùng split của challenger (`>` chặt, fallback `legacy`)

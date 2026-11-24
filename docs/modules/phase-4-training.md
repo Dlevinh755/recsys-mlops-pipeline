@@ -86,11 +86,20 @@ tại — dùng để re-evaluate độc lập một run đã train.
 ### 2.6 `jobs/training/promote.py` — gate promotion
 
 So `candidate_metric` (`val_ndcg_at_10` của version chỉ định, mặc định
-version mới nhất) với `production_metric` hiện tại
+version mới nhất) với production hiện tại
 (`registry_client.get_production_version()`). Promote (set alias
 `production`) nếu **chưa có** production version nào (luôn nhận version đầu
-tiên) hoặc `candidate_metric >= production_metric` — champion/challenger,
-không hard-code một ngưỡng tuyệt đối tuỳ tiện.
+tiên) hoặc challenger thắng champion — champion/challenger, không hard-code
+một ngưỡng tuyệt đối tuỳ tiện.
+
+**Cập nhật 2026-11-24 (ADR 0013)**: không so hai số `val_ndcg_at_10` của hai run
+nữa (hai tập valid khác nhau khi dữ liệu đổi). `train_agf` chấm champion trên
+split của challenger và ghi `champion_val_ndcg_at_10_same_split`; `promote.py`
+(hàm thuần `decide_promotion`) promote khi `val_ndcg_at_10 > champion_same_split
++ min_delta` (`>` chặt; `--min-delta`, `--dry-run`). Run không có số same-split
+(đăng ký trước thay đổi này, hoặc champion đã đổi) rơi về luật `>=` cũ, ghi
+`comparison: "legacy"`. Mô tả `>=` ở trên và dòng DoD "Gate promotion" bên dưới
+là hành vi của lần triển khai Phase 4 ban đầu.
 
 **Lưu ý dùng alias thay stage**: `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`
 dùng chữ "trạng thái production" — bản triển khai dùng MLflow **alias**
@@ -202,7 +211,8 @@ thật (`test.parquet`/`incoming/` dành cho việc này ở Phase 4/7 sau, xem 
 | `jobs/training/build_sequence_dataset.py` | Vocab + leave-last-item-out split từ Gold | `PAD_INDEX=0`; `load_dataset()` dùng chung bởi train/evaluate |
 | `jobs/training/train_sequence.py` | `GRU4RecNet`, training loop sampled softmax, `GRU4RecRanker`, log MLflow | `EXPERIMENT_NAME`/`REGISTERED_MODEL_NAME = "reco-mlops-gru4rec"`; CLI `--epochs/--batch-size/--lr/--embedding-dim/--hidden-size/--num-negatives` |
 | `jobs/training/evaluate.py` | 4 hàm metric thuần + `evaluate_val_set()` + CLI re-evaluate | CLI: `--run-id`, `--k` (mặc định 10) |
-| `jobs/training/promote.py` | Gate promotion champion/challenger | CLI: `--model-name`, `--version` (mặc định version mới nhất); metric gate `val_ndcg_at_10` |
+| `jobs/training/promote.py` | Gate promotion champion/challenger | CLI: `--model-name`, `--version` (mặc định version mới nhất), `--min-delta`, `--dry-run`; metric gate `champion_val_ndcg_at_10_same_split` (ADR 0013) |
+| `jobs/training/champion_eval.py` | Chấm champion trên split của challenger (ADR 0013) | Dịch vocab qua `product_id`; target lạ = hụt; cùng cách chấm của serving |
 
 ### Hạ tầng & test
 

@@ -289,6 +289,27 @@ thước (rating lệch thấp, 60% item lạ): `dataset_drift=True`, cả 2 c�
 minh trên lô dữ liệu thật khác phân phối (`test.parquet`/`incoming/`) chạy qua
 `dag_monitoring`. Jenkins đã chạy xanh với model AGF (build #7, `phase-8-cicd.md` mục 4).
 
+### 7.5 Cổng promote so cùng split (2026-11-24, ADR 0013)
+
+Sau khi nạp `incoming/`, v5 đạt 0,0847 < 0,0920 của v4 và bị từ chối, nhưng hai số
+đo trên hai tập valid khác nhau (1.517 và 1.378 mẫu) và Pop cũng tụt 0,0442 →
+0,0373. Sửa: `train_agf` chấm champion trên split của challenger
+(`jobs/training/champion_eval.py`), `promote.py` so số đó (`>` chặt).
+
+Chạy thật trên stack (v6 = cùng Gold với v5, champion = v4, `promote --dry-run`):
+
+| Số đo trên split của v6 (1.517 mẫu valid) | `val_ndcg_at_10` |
+|---|---|
+| v6 (challenger) | 0,0847 |
+| v4 (champion, chấm lại) | **0,0680** |
+| Pop | 0,0373 |
+
+Lift so với Pop: v6 2,27×, v4 2,08× (số của run v4 trên split cũ). Cổng ra
+`comparison: "same_split"`, `would_promote: true`; alias vẫn ở v4 vì chạy
+`--dry-run`. Version 5 không có số same-split nên vẫn rơi về `legacy` và bị từ
+chối như cũ. Không có mẫu nào champion không chấm được (0 target lạ, 0 chuỗi
+rỗng). 1 seed, ~1,5K mẫu valid: hiệu 0,0167 chưa có khoảng tin cậy.
+
 ## 6. Danh sách file đã triển khai
 
 ### `libs/` (version 0.7.0)
@@ -321,7 +342,8 @@ minh trên lô dữ liệu thật khác phân phối (`test.parquet`/`incoming/`
 | `jobs/training/baselines.py` | Popularity cùng split | Hoà điểm tách theo chỉ số |
 | `jobs/training/training_figures.py` | 2 ảnh log vào run (`figures/training_curves.png`, `figures/agf_vs_popularity.png`) | matplotlib backend Agg (đã có sẵn qua `mlflow`) |
 | `jobs/training/agf_method_config.yaml` | Cấu hình đã chốt | gru4rec, d 64, L 10, dropout 0,2 |
-| `jobs/training/promote.py` | Mặc định registry mới | `--model-name` cho registry cũ |
+| `jobs/training/promote.py` | Mặc định registry mới; so cùng split (ADR 0013) | `--model-name` cho registry cũ; `--min-delta`, `--dry-run` |
+| `jobs/training/champion_eval.py` | Chấm champion trên split của challenger | Log `champion_*_same_split`, `champion_version` |
 | `jobs/training/train_sequence.py` | GRU4Rec cũ (legacy) | Registry `reco-mlops-gru4rec` |
 | `jobs/candidates/similar_items.py` | Cosine trên `H` | Artifact `agf/item_table.npy` |
 | `jobs/monitoring/model_quality_report.py` | Tên registry từ libs | — |

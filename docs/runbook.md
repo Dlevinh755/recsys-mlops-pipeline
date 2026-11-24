@@ -45,6 +45,14 @@ tiến trình. Kiểm tra: log task có dòng `Starting docker container from im
 scheduler. Image `serving`/`ui`/`airflow` không do DAG chạy; các service đó
 đổi tag khi `docker compose up -d` với `IMAGE_TAG` mới.
 
+## Kiểm tra quyết định promote không đổi alias
+
+```powershell
+docker compose --profile jobs run --rm --no-deps training-job jobs.training.promote --dry-run
+```
+
+In JSON có `comparison` (`same_split` / `legacy` / `first`), `reason`, `would_promote`; alias `production` giữ nguyên. `--version N` xét version cụ thể, `--min-delta X` đòi challenger vượt champion hơn X. `train_agf --no-champion` bỏ bước chấm champion (khi đó cổng rơi về `legacy`). Xem ADR 0013.
+
 ## Rollback model thủ công
 
 Model production được chọn qua alias MLflow (`production`), không phải

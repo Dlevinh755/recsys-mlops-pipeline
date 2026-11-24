@@ -55,7 +55,7 @@ run MLflow:
 
 | Metric | Ý nghĩa |
 |---|---|
-| `val_ndcg_at_10` | Metric chính — dùng để promote (`promote.py`) và theo dõi xu hướng (`model_quality_report.py`) |
+| `val_ndcg_at_10` | Metric chính — theo dõi xu hướng (`model_quality_report.py`) và là số của challenger trong cổng promote, so với `champion_val_ndcg_at_10_same_split` (champion chấm lại trên cùng split, ADR 0013; run cũ không có số này thì so `val_ndcg_at_10` của hai run như trước) |
 | `val_recall_at_10`, `val_*_at_20`, `test_*` | Phụ |
 | `baseline_pop_val_*`, `baseline_pop_test_*` | Popularity (đếm trên train) **trên đúng split và cách xếp hạng đó** — mốc tối thiểu model phải vượt |
 | `val_*_epoch` (theo epoch), `figures/*.png` | Đường cong huấn luyện và so sánh với Pop, xem ở tab Model metrics / Artifacts của run (từ version 4) |
@@ -188,8 +188,12 @@ tốt nhất hiện dùng".
 - **Negative sampling đều (uniform)**, không theo phân phối tần suất — đơn
   giản, dễ giải thích, nhưng có thể sample negative "quá dễ" so với
   phương pháp phổ biến hơn (popularity-based negative sampling).
-- **Chưa gate theo p-value/significance** — `promote.py` chỉ so 1 con số
-  `val_ndcg_at_10` giữa 2 version, không kiểm định thống kê.
+- **Chưa gate theo p-value/significance** — `promote.py` chỉ so 1 con số giữa
+  challenger và champion, không kiểm định thống kê. Từ 2026-11-24 (ADR 0013) số
+  đó đo trên **cùng một split**: champion được chấm lại trên mẫu valid của
+  challenger (`champion_val_ndcg_at_10_same_split`), nên không còn so hai tập
+  valid khác nhau. Vẫn 1 seed và ~1,5K mẫu valid, nên chênh lệch nhỏ chưa đủ để
+  nói "tốt hơn có ý nghĩa thống kê".
 
 ### Sử dụng đúng cách
 
