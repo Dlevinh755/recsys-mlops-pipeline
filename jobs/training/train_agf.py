@@ -49,7 +49,7 @@ from jobs.training.champion_eval import Champion, evaluate_champion, load_produc
 from jobs.training.training_figures import baseline_comparison_figure, training_curves_figure
 from reco_mlops_libs.common.env import require_env
 from reco_mlops_libs.iceberg.catalog import get_catalog
-from reco_mlops_libs.iceberg.schema_contracts import gold_item_features, gold_user_features
+from reco_mlops_libs.iceberg.schema_contracts import gold_item_features, gold_user_features, silver_interactions
 from reco_mlops_libs.mlflow_utils.logging_helpers import log_iceberg_snapshots
 from reco_mlops_libs.ranking.agf import trainer as T
 from reco_mlops_libs.ranking.base import REGISTERED_MODEL_NAME
@@ -65,6 +65,14 @@ def _prefixed(prefix: str, metrics: dict[str, float]) -> dict[str, float]:
     """`{"ndcg@10": x}` → `{"<prefix>_ndcg_at_10": x}` (MLflow-safe names,
     same `val_ndcg_at_10` key promote.py / monitoring already read)."""
     return {f"{prefix}_{key.replace('@', '_at_')}": value for key, value in metrics.items()}
+
+
+def table_row_count(table: Table) -> int:
+    """Rows in the table's current snapshot: the snapshot summary when it has
+    `total-records`, else a metadata-only scan count."""
+    snapshot = table.current_snapshot()
+    total = snapshot.summary.additional_properties.get("total-records") if snapshot and snapshot.summary else None
+    return int(total) if total is not None else int(table.scan().count())
 
 
 def to_item_inputs(items: CatalogItems) -> T.ItemInputs:
@@ -113,6 +121,11 @@ def run_training(
         })
         if lineage_tables:
             log_iceberg_snapshots(lineage_tables)
+            silver = lineage_tables.get(silver_interactions.TABLE_IDENTIFIER)
+            if silver is not None:
+                # ADR 0014: how much Silver this version saw. retrain_decision counts
+                # "new rows" from here; refresh_baseline reads the snapshot id above.
+                mlflow.log_param("silver_rows", table_row_count(silver))
 
         result = T.train(cfg, inter, items, seed, device=device, log=lambda m: print(json.dumps({"log": m})))
         samples = result["samples"]
@@ -194,7 +207,9 @@ def load_gold_rows() -> tuple[list[dict], list[dict], dict[str, Table]]:
     item_rows = item_table.scan(selected_fields=ITEM_COLUMNS).to_arrow().to_pylist()
     user_rows = user_table.scan(selected_fields=USER_COLUMNS).to_arrow().to_pylist()
     lineage = {gold_item_features.TABLE_IDENTIFIER: item_table,
-               gold_user_features.TABLE_IDENTIFIER: user_table}
+               gold_user_features.TABLE_IDENTIFIER: user_table,
+               # Not read for training (Gold already derives from it): lineage only (ADR 0014).
+               silver_interactions.TABLE_IDENTIFIER: catalog.load_table(silver_interactions.TABLE_IDENTIFIER)}
     return item_rows, user_rows, lineage
 
 
