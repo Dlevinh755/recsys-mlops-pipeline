@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-24 (ghim s3fs 2026.1.0 sửa lỗi 403 remote signing — ADR 0009)
+Cập nhật lần cuối: 2026-11-24 (Silver tăng dần — ADR 0010; ghim s3fs 2026.1.0 — ADR 0009)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
@@ -20,6 +20,13 @@ Cập nhật lần cuối: 2026-11-24 (ghim s3fs 2026.1.0 sửa lỗi 403 remote
 | 10 | AGF-GRU4Rec thay GRU4Rec chỉ-ID + cột `category_path` (ADR 0008) | 🟡 Đã chạy thật end-to-end (2026-11-19), 26 test pass trong image training; còn 8 dòng fixture mở | [phase-10-agf.md](modules/phase-10-agf.md) |
 
 ## Trạng thái tổng thể
+
+**2026-11-24 — Silver tăng dần (ADR 0010, không đổi trạng thái phase nào):**
+`build_silver` chỉ xử lý Bronze nạp sau watermark `_ingested_at` lưu trong
+properties của bảng Silver rồi upsert; cờ `--full-refresh` tính lại toàn bộ.
+Đã chạy thật: lần 2 không đổi gì (0 dòng, không snapshot mới), thêm 1 tương
+tác qua `/interact` → Silver tăng đúng 1 dòng, `dag_transform` xanh. Gold vẫn
+tính lại toàn bộ. Chi tiết: `modules/phase-2-lakehouse.md` mục 2.9.
 
 **Phase 10 (2026-11-14)** — model chính đổi sang **AGF-GRU4Rec** (repo thực
 nghiệm `../experiment/`, ADR 0008): `libs` 0.7.0 thêm `ranking/agf/`; job
