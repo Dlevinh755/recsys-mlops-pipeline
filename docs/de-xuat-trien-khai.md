@@ -9,6 +9,12 @@ sang phase kế tiếp. Thứ tự phase được sắp theo nguyên tắc: **h�
 trước, business logic sau, orchestration/observability cuối** — tránh vừa
 build job vừa build hạ tầng chạy job cùng lúc.
 
+> **Ghi chú (2026-11-25)**: đây là **kế hoạch gốc**; các ô `[ ]` bên dưới không được tích
+> khi làm xong. Trạng thái thật nằm ở `docs/STATUS.md` (phase nào xong) và
+> `docs/modules/phase-N-*.md` (as-built, kể cả chỗ lệch kế hoạch); chỗ lệch có ADR ở
+> `docs/decisions/`. Các phần ra đời sau kế hoạch (AGF, Silver tăng dần, Jenkins thật,
+> cổng promote cùng split, vòng drift → retrain, nhiều ứng viên) không có checklist ở đây.
+
 ---
 
 ## Phase 0 — Khung project & hạ tầng nền tảng

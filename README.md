@@ -134,6 +134,21 @@ Xem audit gồm cả định danh load của `dlt`:
 docker compose exec source-db psql -U reco_app -d recommendation -P pager=off -c "SELECT source_name, status, extracted_rows, jsonb_array_length(batches) AS n_batches, batches, error_message FROM pipeline.extraction_runs ORDER BY started_at DESC LIMIT 10;"
 ```
 
+## Nạp lô dữ liệu mới (`incoming/`, demo drift)
+
+`amazone_data/incoming/batch_NN.parquet` là `test.parquet` chia theo thời gian (8 phần,
+`amazone_data/DATA.md` mục 7), dùng để mô phỏng "dữ liệu mới về" và cho Evidently thấy
+drift thật. `scripts/load_incoming_batch.py` nạp chúng vào `source-db` đang chạy
+(chạy trên host, cần `psycopg`, `pandas`, `pyarrow`; idempotent — chạy lại không nhân đôi):
+
+```bash
+python scripts/load_incoming_batch.py --all --dry-run   # chỉ in thống kê (số dòng, tỷ lệ item lạ)
+python scripts/load_incoming_batch.py --all             # hoặc --batch 0 1 2
+```
+
+Sau đó chạy lại `dag_ingest → dag_transform → …` (hoặc `dag_continuous_training`). Khi
+`SOURCE_DB_DSN` không đặt, script dùng DSN mặc định của `seed_source_db.py`.
+
 ## Chạy Phase 2 lakehouse (Bronze → Silver → Gold)
 
 Sau khi extract đã tạo dữ liệu (mục trên):
@@ -201,9 +216,17 @@ ranking chính (AGF-GRU4Rec) và đẩy version lên MLflow registry:
 docker compose --profile jobs build training-job
 make train                                    # jobs.training.train_agf (lần đầu tải MiniLM từ Hugging Face)
 make train ARGS="--no-text"                   # không cần mạng: bỏ nhánh text
-make promote                                  # gate: chỉ promote nếu vượt production hiện tại
+make promote                                  # gate: chỉ promote nếu vượt production hiện tại, đo trên cùng split (ADR 0013)
+make train ARGS="--candidates gru4rec,sasrec,gru4rec_sum"   # train nhiều ứng viên, chỉ đăng ký người thắng (ADR 0015)
+docker compose --profile jobs run --rm training-job jobs.training.promote --dry-run   # xem quyết định, không đổi alias
 make train-gru4rec                            # GRU4Rec chỉ-ID cũ (ADR 0004), registry riêng, chỉ để so sánh
 ```
+
+Cổng promote không so hai số `val_ndcg_at_10` của hai run (hai tập valid khác nhau khi
+dữ liệu đổi): `train_agf` chấm lại model `production` trên split của model mới và ghi
+`champion_val_ndcg_at_10_same_split`; `promote` so với số đó (`>` chặt, `--min-delta`).
+Nhiều ứng viên: mặc định `TRAIN_CANDIDATES=gru4rec`; chọn người thắng trên valid, hơn mặc định
+và vượt 1 sai số chuẩn mới thắng. Xem ADR 0013 và 0015.
 
 MLflow UI: http://localhost:5000 (experiment/registry `reco-mlops-agf`; metric
 `val_ndcg_at_10`, `test_ndcg_at_10` và baseline `baseline_pop_*` trên cùng
@@ -266,6 +289,13 @@ job nào lỗi. Chi tiết kiến trúc:
 make airflow-down   # dừng riêng Airflow, không đụng các service khác
 ```
 
+Vòng lặp drift → retrain (ADR 0014) có DAG riêng, `dag_continuous_training`, tạo ở trạng
+thái **tạm dừng**: `data_drift_report → retrain_decision → dag_ingest → … → dag_training →
+refresh_baseline`. `retrain_decision` thoát mã 99 khi không cần retrain, các task sau bị
+*skipped* và run vẫn xanh. Unpause rồi Trigger để demo; ngưỡng ở `RETRAIN_*` trong `.env`
+(demo: `RETRAIN_COOLDOWN_HOURS=0`, rồi `docker compose restart airflow-scheduler`). Nhớ pause lại
+sau demo vì DAG chạy `@daily`.
+
 ## Chạy Phase 7 monitoring (Prometheus/Grafana + Evidently)
 
 Prometheus + Grafana + 2 exporter (`redis-exporter`, `statsd-exporter`) nằm
@@ -296,6 +326,16 @@ tay:
 docker compose --profile jobs run --rm monitoring-job jobs.monitoring.data_drift_report
 docker compose --profile jobs run --rm monitoring-job jobs.monitoring.model_quality_report
 ```
+
+Quyết định retrain và dịch baseline theo model production (ADR 0014):
+
+```bash
+docker compose --profile jobs run --rm --no-deps monitoring-job jobs.monitoring.retrain_decision   # exit 0 = retrain, 99 = bỏ qua
+docker compose --profile jobs run --rm --no-deps monitoring-job jobs.monitoring.refresh_baseline
+```
+
+Muốn demo drift thật, nạp lô dữ liệu mới vào `source-db` trước
+(`scripts/load_incoming_batch.py`, xem mục dưới "Nạp lô dữ liệu mới").
 
 Report (HTML + JSON) ghi lên MinIO bucket `monitoring-reports`. Chi tiết:
 [`docs/modules/phase-7-monitoring.md`](docs/modules/phase-7-monitoring.md).

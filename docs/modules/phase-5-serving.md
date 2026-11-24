@@ -194,10 +194,9 @@ Số liệu phụ (tham khảo): `similar_items` job xử lý 1565/1565 item;
 - Model chất lượng còn thấp (kế thừa từ Phase 4, xem
   `phase-4-training.md` mục 4) — không chặn Phase 5 vì DoD chỉ yêu cầu quy
   trình đúng, không đặt ngưỡng chất lượng.
-- `fastapi`/`uvicorn`/`redis` trong `requirements/serving.txt` cố ý chưa
-  ghim cứng version (xem mục 3, ADR 0007) — nên chốt version cụ thể
-  (`fastapi==0.141.1`, `uvicorn==0.34.0`) khi ổn định lâu dài, tránh
-  version trôi giữa các lần build.
+- ~~`fastapi`/`uvicorn` chưa ghim~~ — đã ghim 2026-11-24 (`fastapi==0.163.2`,
+  `uvicorn[standard]==0.34.0`, ADR 0007); `redis` cố ý không ghim vì `feast` cap `<5`.
+  Chưa chạy lại `serving/tests` sau khi ghim ngoài `test_score_candidates.py`.
 
 ## 6. Danh sách file đã triển khai
 

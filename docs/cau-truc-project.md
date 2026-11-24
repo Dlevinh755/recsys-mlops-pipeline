@@ -7,6 +7,12 @@ training không phụ thuộc engine sinh dataset. Bổ sung mới: lớp tín h
 tác tức thời ở serving (`/interact` + re-rank), giao diện demo (`ui/`), và
 công cụ kiểm thử tải (`tests/load/`) — xem giải thích ở cuối tài liệu.
 
+> **Cập nhật 2026-11-24**: đây là sơ đồ **dự kiến**; một số tên đã khác khi triển khai
+> (xem `STATUS.md`, `modules/`). Thêm sau kế hoạch: `airflow/dags/dag_continuous_training.py`;
+> `jobs/training/{train_agf,champion_eval,candidates}.py`;
+> `jobs/monitoring/{baseline,retrain_decision,refresh_baseline}.py`;
+> `jobs/maintenance/expire_snapshots.py`; `tests/monitoring/`; `scripts/load_incoming_batch.py`.
+
 ```text
 recommendation-mlops/
 ├── README.md
@@ -65,6 +71,7 @@ recommendation-mlops/
 │   │   ├── dag_training.py
 │   │   ├── dag_materialize.py         # export -> Feast -> Redis (+ similar_items -> Redis)
 │   │   ├── dag_monitoring.py          # Evidently drift/quality report định kỳ
+│   │   ├── dag_continuous_training.py # drift -> quyết định -> retrain -> refresh baseline (ADR 0014)
 │   │   └── dag_maintenance.py         # compact/expire snapshot Iceberg
 │   └── plugins/
 │       └── operators/
@@ -97,7 +104,9 @@ recommendation-mlops/
 │   │   │                              #   interface ranking/base.py
 │   │   ├── evaluate.py                # NDCG/Recall/MAP/Coverage — dùng chung
 │   │   │                              #   cho cả LightGBM lẫn sequence model
-│   │   ├── promote.py                 # promotion gate
+│   │   ├── promote.py                 # promotion gate (so cùng split, ADR 0013)
+│   │   ├── champion_eval.py           # chấm model production trên split của model mới
+│   │   ├── candidates.py              # nhiều ứng viên AGF + luật chọn (ADR 0015)
 │   │   ├── build_sequence_dataset.py  # MỞ RỘNG (Phase 9) — sinh chuỗi
 │   │   │                              #   item_id theo user từ Gold layer
 │   │   └── train_sequence.py          # MỞ RỘNG (Phase 9) — mini-GRU4Rec
@@ -112,6 +121,9 @@ recommendation-mlops/
 │   ├── monitoring/
 │   │   ├── data_drift_report.py       # Evidently: so Silver hôm nay vs baseline
 │   │   ├── model_quality_report.py    # Evidently: prediction drift, feature drift
+│   │   ├── baseline.py                # baseline drift trên MinIO (train.parquet -> current.parquet)
+│   │   ├── retrain_decision.py        # quyết định retrain, exit 0/99 (ADR 0014)
+│   │   ├── refresh_baseline.py        # dịch baseline theo model production
 │   │   └── report_sink.py             # ghi HTML/JSON report lên MinIO
 │   └── maintenance/
 │       └── compact_iceberg.py
@@ -200,6 +212,7 @@ recommendation-mlops/
 ├── tests/
 │   ├── unit/                          # 1 thư mục con / job
 │   ├── integration/                   # test với MinIO + DuckDB thật (docker)
+│   ├── monitoring/                    # quyết định retrain, drift summary, baseline trên MinIO
 │   ├── data_quality/                  # test Evidently / schema contract
 │   │   └── test_train_serve_skew.py   # so feature offline (Gold) vs online (Redis)
 │   ├── model/
