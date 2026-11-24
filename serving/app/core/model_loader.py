@@ -3,14 +3,16 @@ ranking model cached in memory — closes the train -> promote -> serve loop
 described in `bao-cao-ky-thuat.md` mục 7.3: promoting a new model version
 must not require restarting `serving`.
 
-Model since ADR 0008: **AGF-GRU4Rec** (`reco_mlops_libs.ranking.agf`),
+Model since ADR 0008: **AGF** (`reco_mlops_libs.ranking.agf`; GRU4Rec backbone by
+default, SASRec backbone or other attribute fusion when `train_agf` selects another
+candidate, ADR 0015 — scoring below only calls `net.seq_output`, so it is the same),
 registry `REGISTERED_MODEL_NAME`. Scoring uses the item table
 `H = [h_1..h_N]` that the training job precomputed and logged with the same
 run (`agf/item_table.npy`) — `h_i` depends only on the item, so the online
-cost is the GRU backbone plus one dot product per candidate, and serving
+cost is the sequence backbone plus one dot product per candidate, and serving
 never needs item attributes or the text encoder:
 
-    s_u = GRU(H[seq])            # user state from the ≤ max_len latest items
+    s_u = backbone(H[seq])       # user state from the ≤ max_len latest items
     score(u, i) = s_u · H[i]
 
 Items that were in the catalog at training time but had no training
