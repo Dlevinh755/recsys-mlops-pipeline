@@ -45,6 +45,10 @@ thực tế đã code.
    thật) rồi cả pipeline thật (extract→...→feast_materialize) để có dữ liệu
    cho `tests/data_quality` (cần cả Iceberg lẫn Feast/Redis, chạy trong
    `materialize-job`). Luôn `down --volumes` ở `post.always`.
+   Từ 2026-11-24 stage có thêm bước `extract-job` trước `build_bronze` (trước
+   đó thiếu, build #6 fail ở `test_train_serve_skew` vì Bronze/Gold rỗng), với
+   `DLT_PIPELINES_DIR=/tmp/dlt-pipelines` để state dlt không nằm trong
+   workspace cố định và không lọt sang build sau (xem `phase-10-agf.md` 7.3).
 6. **Model Smoke Test** — `MLFLOW_TRACKING_URI=file:///tmp/mlruns`, không
    `docker compose up` gì (ADR 0005 update 2026-09-15).
 7. **Build & Push Images** — 8 image song song (`failFast` mặc định

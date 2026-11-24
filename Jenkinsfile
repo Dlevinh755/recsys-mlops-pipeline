@@ -120,6 +120,13 @@ pipeline {
                 // Feed the pipeline for real so the skew test below has
                 // both an offline (Gold) and online (Feast/Redis) side to
                 // compare — no point testing skew against empty tables.
+                // Extract first: without it Bronze is empty and the skew test
+                // below fails on "gold.user_features is empty" (build #6).
+                // dlt's working dir goes to the container's /tmp, not the
+                // bind-mounted data/dlt-pipelines: that dir lives in the fixed
+                // workspace and would carry a cursor from a previous build into
+                // this build's empty bucket, silently extracting 0 rows.
+                sh 'docker compose --profile jobs run --rm -e DLT_PIPELINES_DIR=/tmp/dlt-pipelines extract-job'
                 sh 'docker compose --profile jobs run --rm transform-job jobs.transform.build_bronze'
                 sh 'docker compose --profile jobs run --rm transform-job jobs.transform.build_silver'
                 sh 'docker compose --profile jobs run --rm transform-job jobs.transform.build_gold'
