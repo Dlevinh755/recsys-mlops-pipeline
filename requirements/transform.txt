@@ -1,3 +1,6 @@
 duckdb==1.5.5
-s3fs==2026.7.0
+# s3fs/fsspec ghim 2026.1.0, không nâng lên: từ s3fs 2026.2.0 client bị tạo lại
+# âm thầm và mất hook remote signing của Lakekeeper -> 403 (ADR 0009).
+s3fs==2026.1.0
+fsspec==2026.1.0
 pytest==8.4.1

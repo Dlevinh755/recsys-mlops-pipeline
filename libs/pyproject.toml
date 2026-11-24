@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reco-mlops-libs"
-version = "0.7.0"
+version = "0.7.1"
 description = "Shared contracts and utilities for Recommendation MLOps"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,6 +12,10 @@ license = { text = "Proprietary" }
 authors = [{ name = "Recommendation MLOps Team" }]
 dependencies = [
     "pyiceberg[pyarrow,s3fs]==0.12.0",
+    # Chặn trên, không ghim cứng: s3fs>=2026.2.0 tạo lại client và làm mất hook
+    # remote signing của Lakekeeper -> 403 (ADR 0009). Image có feast vẫn tự
+    # resolve bản cũ hơn (2024.9.0) nằm trong khoảng này.
+    "s3fs<2026.2.0",
     "pandera==0.33.1",
     "pandas==2.3.3",
     "mlflow==3.12.0",

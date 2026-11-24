@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — 2026-11-24
+
+- Thêm ràng buộc `s3fs<2026.2.0` vào dependency (ADR 0009). Từ s3fs 2026.2.0,
+  `S3FileSystem.set_session()` âm thầm tạo client mới khi aiohttp session cũ
+  đã đóng. Hook `before-sign.s3` (remote signing của Lakekeeper) mà PyIceberg
+  0.12.0 gắn vào client cũ bị mất, nên request đi dạng không ký và MinIO trả
+  403 (`dag_transform.build_bronze` fail lúc commit, 2026-11-24). Trước đó
+  image `training` resolve s3fs 2026.9.0 nên cũng bị ảnh hưởng. Không đổi code.
+
 ## 0.7.0 — 2026-11-14
 
 - Thêm package `ranking/agf/` (ADR 0008) — `agf_core.py` (kiến trúc AGF +

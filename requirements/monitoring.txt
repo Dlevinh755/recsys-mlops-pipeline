@@ -2,4 +2,7 @@
 # already come from `-e ../libs`; this file only adds what libs deliberately
 # keeps out (evidently, s3fs — see libs/README.md).
 evidently==0.4.40
-s3fs==2026.7.0
+# s3fs/fsspec ghim 2026.1.0, không nâng lên: từ s3fs 2026.2.0 client bị tạo lại
+# âm thầm và mất hook remote signing của Lakekeeper -> 403 (ADR 0009).
+s3fs==2026.1.0
+fsspec==2026.1.0

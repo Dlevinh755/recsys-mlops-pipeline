@@ -402,3 +402,11 @@ Chạy thật trên `docker compose` (Lakekeeper + MinIO + Postgres), không moc
 | `docker-compose.yml` (service `transform-job`) | Chạy job transform qua profile `jobs` | Env `ICEBERG_*` + `EXTRACT_S3_*`; `depends_on: catalog-bootstrap` |
 | `.dockerignore` (dòng `!tests/integration`) | Cho phép COPY `tests/integration/` vào image dù `tests/` bị ignore | — |
 | `infra/iceberg-catalog/bootstrap.sh` | (Sửa ở Phase 2) Idempotent hoá khi catalog/warehouse đã tồn tại | Xem mục 4 |
+
+## Bổ sung 2026-11-24 — s3fs phải ghim 2026.1.0 (ADR 0009)
+
+`dag_transform.build_bronze` fail 403 lúc commit vì s3fs >= 2026.2.0 tạo lại
+client S3 và làm mất hook remote signing của Lakekeeper. Đã ghim
+`s3fs==2026.1.0`/`fsspec==2026.1.0` (transform, monitoring), `libs` 0.7.1 thêm
+`s3fs<2026.2.0`, test chặn tái phát: `tests/integration/test_remote_signing.py`.
+Xem `docs/decisions/0009-pin-s3fs-remote-signing.md`.

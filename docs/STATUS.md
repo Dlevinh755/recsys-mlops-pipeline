@@ -3,7 +3,7 @@
 > Cập nhật mỗi khi một phase chuyển trạng thái. Xem quy ước cập nhật trong
 > `CLAUDE.md` mục "Quy ước bắt buộc khi hoàn thành một phase".
 
-Cập nhật lần cuối: 2026-11-20 (Phase 10 — AGF-GRU4Rec đã chạy thật end-to-end)
+Cập nhật lần cuối: 2026-11-24 (ghim s3fs 2026.1.0 sửa lỗi 403 remote signing — ADR 0009)
 
 | Phase | Nội dung | Trạng thái | Tài liệu as-built |
 |---|---|---|---|
