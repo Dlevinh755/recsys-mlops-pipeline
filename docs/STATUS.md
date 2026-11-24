@@ -21,7 +21,7 @@ Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silve
 
 ## Trạng thái tổng thể
 
-**2026-11-24 — Sửa Jenkins đợt 2 (ADR 0011 mục 5–7), chưa push:** `Build & Push`
+**2026-11-24 — Sửa Jenkins đợt 2 (ADR 0011 mục 5–7), đã push, build #10 và #11 xanh (6,8 phút khi cache ấm):** `Build & Push`
 chỉ tag lại image tag SHA đã test (trước đó push nhầm bản cũ cho 3 image),
 Model Smoke Test `--no-deps` + `down` ở `post.always` (build #7/#8 bỏ sót ~9
 container mỗi lần, làm build #9 fail), Jenkins có buildx. Ghim `fastapi`/`uvicorn`

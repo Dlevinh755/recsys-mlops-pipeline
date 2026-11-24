@@ -82,8 +82,16 @@ Các phương án đã loại:
   khoảng 20 phút trong đó `docker compose up -d --build` chiếm 9,6 phút; ở
   build #7 bước này chỉ 1,5 phút và build 3 image test còn khoảng 1 phút (từ
   4,7 phút). Thời gian lúc này nằm ở `Build & Push Images` (khoảng 9,5
-  phút). Image Airflow vẫn bị build 3 lần song song khi cache lạnh (3 service
-  cùng Dockerfile); chưa tối ưu.
+  phút).
+- Sau đợt sửa 5–7 (commit `c7a0ba4`): build #10 xanh trong 27,6 phút — build
+  đầu tiên dùng BuildKit và có `requirements/serving.txt` đổi nên build lại
+  nhiều (khoảng 10 phút ở `Build test images`, `up --build` 4,8 phút) và
+  đẩy lại layer (stage push 5,8 phút). Build #11 trên cùng commit (cache ấm):
+  **xanh trong 6,8 phút**, 23 integration test 1,8 phút, Model Smoke Test
+  khoảng 30 giây, không còn container `reco-ci-*` sau build. So với #6 (20 phút,
+  fail) và #8 (11,4 phút).
+- Image Airflow vẫn được build 3 lần (3 service cùng Dockerfile, tên giống
+  nhau); với BuildKit lần 2–3 là cache hit nên chưa xử lý riêng.
 
 ## Tham chiếu
 
