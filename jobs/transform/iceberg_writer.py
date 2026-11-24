@@ -10,10 +10,12 @@ change.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pyarrow as pa
 from pyiceberg.catalog import Catalog
 from pyiceberg.schema import Schema
-from pyiceberg.table import Table
+from pyiceberg.table import Table, UpsertResult
 
 from reco_mlops_libs.iceberg.catalog import ensure_namespace
 
@@ -96,3 +98,56 @@ def overwrite(table: Table, data: pa.Table) -> None:
     merged incrementally.
     """
     table.overwrite(cast_to_table_schema(data, table))
+
+
+# --- Silver incremental (docs/decisions/0010-silver-incremental.md) ----------
+#
+# The watermark lives in the Iceberg table's own properties, so Iceberg stays
+# the only source of truth (CLAUDE.md principle 3) and the watermark commits
+# in the very same snapshot as the data it describes: there is no "after
+# commit" step that could fail and leave the two out of step.
+
+SILVER_WATERMARK_PROPERTY = "reco.silver.watermark_ingested_at"
+
+
+def format_watermark(value: datetime) -> str:
+    """ISO-8601 UTC with microseconds — what is stored and what `row_filter`
+    compares against (`_ingested_at` is a microsecond timestamptz)."""
+    return value.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+
+def read_watermark(table: Table, property_name: str = SILVER_WATERMARK_PROPERTY) -> str | None:
+    return table.properties.get(property_name)
+
+
+def overwrite_with_watermark(
+    table: Table, data: pa.Table, watermark: str | None,
+    property_name: str = SILVER_WATERMARK_PROPERTY,
+) -> None:
+    """`--full-refresh` / first run: replace the whole table and (re)set the
+    watermark in one transaction. `watermark=None` (empty Bronze) leaves the
+    property untouched."""
+    with table.transaction() as tx:
+        tx.overwrite(cast_to_table_schema(data, table))
+        if watermark is not None:
+            tx.set_properties({property_name: watermark})
+
+
+def upsert_with_watermark(
+    table: Table, data: pa.Table, join_cols: list[str], watermark: str,
+    property_name: str = SILVER_WATERMARK_PROPERTY,
+) -> UpsertResult:
+    """Upsert `data` on `join_cols` and advance the watermark in one
+    transaction. If the upsert raises, nothing is committed and the
+    watermark is unchanged, so a re-run still sees the whole delta.
+
+    `data` must have unique `join_cols` (PyIceberg refuses otherwise). With
+    zero rows (every delta row was stale) only the watermark moves.
+    """
+    with table.transaction() as tx:
+        if data.num_rows:
+            result = tx.upsert(cast_to_table_schema(data, table), join_cols=join_cols)
+        else:
+            result = UpsertResult(rows_updated=0, rows_inserted=0)
+        tx.set_properties({property_name: watermark})
+    return result
