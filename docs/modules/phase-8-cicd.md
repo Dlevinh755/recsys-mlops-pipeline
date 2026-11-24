@@ -140,7 +140,7 @@ implement, không đổi quyết định kiến trúc nào.
 
 | Yêu cầu | Kết quả |
 |---|---|
-| CI chạy tự động trên mỗi commit, gồm model-smoke-test | Jenkinsfile có `pollSCM`, đã validate cú pháp qua chính Jenkins linter. **Đã chạy thật qua Jenkins 2026-11-24**: build #7 (commit `87b0837`, kích tay qua API; `pollSCM` chưa được thử bằng commit tự phát hiện) xanh cả 6 stage trong khoảng 16,7 phút — lint sạch, unit test pass ở cả 3 image (1 + 4 + 24 test), 17 integration test, 1 skew test, 2 model smoke test, 8 image đẩy lên Docker Hub tag `87b0837`. Sáu build trước fail vì bốn chỗ lệch thiết kế, ghi ở ADR 0011 |
+| CI chạy tự động trên mỗi commit, gồm model-smoke-test | Jenkinsfile có `pollSCM`, đã validate cú pháp qua chính Jenkins linter. **Đã chạy thật qua Jenkins 2026-11-24**: build #7 (commit `87b0837`, kích tay qua API; build #8 sau đó tự chạy nhờ `pollSCM` và cũng xanh) xanh cả 6 stage trong khoảng 16,7 phút — lint sạch, unit test pass ở cả 3 image (1 + 4 + 24 test), 17 integration test, 1 skew test, 2 model smoke test, 8 image đẩy lên Docker Hub tag `87b0837`. Sáu build trước fail vì bốn chỗ lệch thiết kế, ghi ở ADR 0011 |
 | Tài liệu phản ánh đúng code đã có | ✅ — toàn bộ 4 file mới + module doc này viết sau khi code xong |
 
 ## 5. Việc còn để lại
@@ -149,8 +149,9 @@ implement, không đổi quyết định kiến trúc nào.
   trong `Jenkinsfile` đã được xác nhận đúng ngữ cảnh checkout (tag
   `87b0837` khớp commit). Dựng Jenkins: lệnh ở `README.md`/`runbook.md` (cần
   `-p mlops4rec-jenkins --env-file .env`); job Multibranch Pipeline
-  `recsys-mlops` trỏ `origin` đã tạo trong Jenkins UI. Chưa kiểm chứng
-  `pollSCM` tự phát hiện commit mới (build #7 kích tay).
+  `recsys-mlops` trỏ `origin` đã tạo trong Jenkins UI. `pollSCM` đã được xác
+  nhận: sau khi push `7156423` lúc 11:05 UTC, build #8 tự chạy ("Started by an
+  SCM change"), xanh trong khoảng 11,4 phút, 8 image tag `7156423`.
 - **Chưa kiểm tra**: image đẩy lên Docker Hub có đang để public hay private
   (mặc định repo Docker Hub mới là public) — việc tùy chọn của người dùng.
 - **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên

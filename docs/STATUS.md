@@ -75,7 +75,7 @@ test mới — train/serve skew (Gold vs Feast/Redis thật) và model-reload
 version mới không cần restart). 4 tài liệu mới: `architecture.md`,
 `runbook.md` (có quy trình rollback model), `data_dictionary.md`,
 `model_card.md`. Đã chạy thật qua Jenkins từ 2026-11-24 (xem đầu mục này
-và ADR 0011); việc còn lại: kiểm chứng `pollSCM` tự phát hiện commit.
+và ADR 0011); `pollSCM` đã xác nhận ở build #8.
 
 ## Việc còn lại để hoàn thiện project (rà soát 2026-10-11)
 
@@ -87,7 +87,7 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
    theo nguyên tắc #8 (tag git SHA) dù project đã có git. Jenkins đã push
    image tag SHA, nhưng DAG không dùng chúng.
 2. ~~CI/CD chưa chạy thật qua Jenkins~~ — đã chạy xanh 2026-11-24 (ADR 0011);
-   `GIT_SHA` đã xác nhận. Còn: `pollSCM` chưa được thử bằng commit tự phát hiện.
+   `GIT_SHA` đã xác nhận. `pollSCM` đã xác nhận bằng build #8 (tự chạy, xanh).
 3. ~~Chất lượng model thấp (NDCG@10 ≈ 0.008), chưa có baseline~~ → Phase 10
    (AGF + baseline popularity log cùng run); chưa có số đo thật trên Cell
    Phones. `test.parquet`/`incoming/` vẫn chưa nạp.
