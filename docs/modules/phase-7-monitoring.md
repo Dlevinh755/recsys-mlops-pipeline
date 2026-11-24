@@ -81,17 +81,21 @@ Tự lấy user/item thật qua `GET /users` + response `/recommend/homepage`
 ### 2.4 Carryover từ Phase 2/6: `jobs/maintenance/compact_iceberg.py`
 
 Đã hứa "dời sang Phase 7" ở cả `phase-2-lakehouse.md` và
-`phase-6-orchestration.md` — làm nốt lần này. Chỉ compact **Bronze**
+`phase-6-orchestration.md` — làm nốt lần này. Lúc đầu chỉ compact **Bronze**
 (`bronze.products`/`bronze.interactions`, append-only, tích tiểu file theo
-từng lần extract) — Gold `overwrite()` toàn bộ mỗi lần chạy (Silver từ 2026-11-24 là upsert tăng dần, ADR 0010, chưa được compact — xem phase-2 mục 2.9) nên
-không cần. Kiểm tra trực tiếp trên `pyiceberg==0.12.0` (bản đã pin) trước
+từng lần extract). Từ 2026-11-24 compact thêm **Silver** vì Silver thành upsert
+tăng dần (ADR 0010, mỗi lần chạy để lại file nhỏ) — ADR 0012. Gold
+`overwrite()` toàn bộ mỗi lần chạy nên không cần. Kiểm tra trực tiếp trên `pyiceberg==0.12.0` (bản đã pin) trước
 khi code: `table.maintenance` mới chỉ có `expire_snapshots`, chưa có action
 `rewrite_data_files`/compaction native — nên compact bằng cách đọc toàn bộ
 (`scan().to_arrow()`) rồi `overwrite()` lại chính nó, tái dùng
 `jobs/transform/iceberg_writer.py::overwrite()` sẵn có. Vẫn là compaction
 Iceberg đúng nghĩa (snapshot mới ít file hơn, snapshot cũ + file cũ vẫn
 còn, time-travel được), không phải hack. `airflow/dags/dag_maintenance.py`
-gọi qua image `transform-job` có sẵn (không dựng image mới).
+gọi qua image `transform-job` có sẵn (không dựng image mới). Từ 2026-11-24 DAG có
+thêm task `expire_snapshots` chạy sau compact (`jobs/maintenance/expire_snapshots.py`):
+gỡ snapshot cũ hơn 7 ngày **và xoá các file chỉ snapshot đó dùng**, vì
+`expire_snapshots()` của PyIceberg 0.12 chỉ sửa metadata (đã đo, ADR 0012).
 
 ## 3. Khác biệt so với đề xuất ban đầu
 
@@ -119,9 +123,9 @@ nguyên tắc kiến trúc.
   `bao-cao-ky-thuat.md` mục "hạn chế còn tồn đọng".
 - Đóng vòng lặp drift → retrain tự động (Evidently phát hiện nhưng không tự
   kích hoạt `dag_training`) — gợi ý dùng Airflow Variable, cũng đã nêu sẵn.
-- `compact_iceberg.py` chưa gọi `expire_snapshots()` — file cũ (đã bị thay
-  bởi lần compact) vẫn chiếm chỗ trên MinIO cho tới khi có chính sách
-  retention rõ ràng (giữ bao nhiêu snapshot/bao lâu).
+- ~~`compact_iceberg.py` chưa gọi `expire_snapshots()`~~ — đã làm 2026-11-24
+  (ADR 0012, retention mặc định 7 ngày). Chưa chạy xoá thật trên bảng thật vì
+  chưa snapshot nào đủ cũ.
 - Tag image trong Airflow vẫn `latest` — git đã có từ Phase 8 nhưng
   `JobDockerOperator` chưa đọc `IMAGE_TAG` (xem `phase-6-orchestration.md`).
 
@@ -155,8 +159,10 @@ nguyên tắc kiến trúc.
 
 | Đường dẫn | Vai trò | Config/setting đáng chú ý |
 |---|---|---|
-| `jobs/maintenance/compact_iceberg.py` | Compact Bronze | Overwrite-based (pyiceberg 0.12.0 chưa có action native) |
-| `airflow/dags/dag_maintenance.py` | 1 task | Dùng image `transform-job` có sẵn |
+| `jobs/maintenance/compact_iceberg.py` | Compact Bronze + Silver (từ 2026-11-24) | Overwrite-based (pyiceberg 0.12.0 chưa có action native) |
+| `jobs/maintenance/expire_snapshots.py` | Gỡ snapshot cũ hơn N ngày + xoá file chỉ chúng dùng, 6 bảng | `--older-than-days`/`EXPIRE_OLDER_THAN_DAYS` (mặc định 7), `--dry-run`; xoá bằng `fs.rm_file` vì `io.delete` bị signer từ chối |
+| `tests/integration/test_maintenance.py` | 6 test compact Silver + expire (có ca file dùng chung) | Chạy trên `*.it_test_mt_*`, `make test-integration` |
+| `airflow/dags/dag_maintenance.py` | 2 task: compact → expire | Dùng image `transform-job` có sẵn |
 | `infra/docker/transform/Dockerfile` | +`COPY jobs/maintenance/` | |
 
 ### Load test

@@ -156,7 +156,7 @@ implement, không đổi quyết định kiến trúc nào.
 - **Airflow chưa dùng image tag SHA**: `JobDockerOperator` vẫn dựng tên
   image `:latest` (xem `phase-6-orchestration.md`), nên image Jenkins push
   theo SHA chưa được DAG tiêu thụ.
-- `expire_snapshots()` cho `compact_iceberg.py` (Phase 7) vẫn để lại.
+- `expire_snapshots` đã làm 2026-11-24 (ADR 0012).
 
 ## 6. Danh sách file đã triển khai
 

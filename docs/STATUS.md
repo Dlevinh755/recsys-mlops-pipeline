@@ -21,6 +21,13 @@ Cập nhật lần cuối: 2026-11-24 (Jenkins chạy thật — ADR 0011; Silve
 
 ## Trạng thái tổng thể
 
+**2026-11-24 — Bảo trì Iceberg (ADR 0012):** `compact_iceberg` compact thêm Silver,
+job mới `expire_snapshots` gỡ snapshot quá 7 ngày và xoá file mà snapshot đó
+dùng riêng (PyIceberg 0.12 chỉ sửa metadata, đã đo). 6 integration test pass,
+kiểm tra đột biến bắt được lỗi xoá nhầm file đang dùng. Chưa xoá thật trên bảng
+thật vì chưa snapshot nào đủ cũ; `pollSCM` đã được xác nhận (build #8 tự chạy,
+xanh).
+
 **2026-11-24 — Jenkins chạy thật (ADR 0011):** build #7 (commit `87b0837`) xanh
 cả 6 stage trong khoảng 16,7 phút, gồm 17 integration test, skew test, 2 model
 smoke test (AGF) và đẩy 8 image lên Docker Hub tag `87b0837`. Sáu build trước
@@ -87,7 +94,7 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
 4. **Vòng lặp drift → retrain chưa khép kín**: mọi DAG `schedule=None`,
    Evidently không kích hoạt `dag_training`, `/interact` chỉ ghi hành động
    "mua" (chưa có impression/click để tính online metric).
-5. **Chưa có Alertmanager**, và `compact_iceberg.py` chưa `expire_snapshots()`.
+5. **Chưa có Alertmanager.** ~~`expire_snapshots`~~ đã làm (ADR 0012); chưa chạy xoá thật vì chưa snapshot nào quá 7 ngày.
 6. `fastapi`/`uvicorn`/`redis` trong `requirements/serving.txt` chưa ghim
    version.
 
@@ -137,3 +144,5 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
   `_ingested_at` + upsert) thay cho tính lại toàn bộ
 - [0011](decisions/0011-jenkins-chay-that-dieu-chinh.md) — Điều chỉnh Jenkins
   khi chạy thật: `root`, `COMPOSE_FILE` mọi stage, workspace cố định, bước extract
+- [0012](decisions/0012-iceberg-maintenance-expire-snapshots.md) — Bảo trì Iceberg:
+  compact Silver và `expire_snapshots` có xoá file

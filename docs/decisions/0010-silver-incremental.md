@@ -85,7 +85,7 @@ Các phương án đã loại:
 - Dòng cùng `updated_at` với bản đã có bị coi là cũ (bỏ qua), khớp quy ước
   của SQL dedup hiện tại.
 - Chế độ full vẫn tạo 2 snapshot (xoá + ghi). Snapshot cũ vẫn tích tụ cho tới
-  khi có `expire_snapshots` — việc độc lập, chưa làm.
+  khi có `expire_snapshots` — đã làm ở ADR 0012 (cùng compact Silver).
 - Không có checklist phase nào bị ảnh hưởng; không có ngoại lệ mới cho nguyên
   tắc 10.1.
 - Chưa kiểm chứng việc partition Bronze theo `_ingested_at` có giúp `row_filter`
