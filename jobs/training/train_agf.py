@@ -45,6 +45,7 @@ from jobs.training.agf_inputs import (
     interactions_from_sequences,
 )
 from jobs.training.baselines import popularity_metrics
+from jobs.training.champion_eval import Champion, evaluate_champion, load_production_champion
 from jobs.training.training_figures import baseline_comparison_figure, training_curves_figure
 from reco_mlops_libs.common.env import require_env
 from reco_mlops_libs.iceberg.catalog import get_catalog
@@ -81,10 +82,15 @@ def run_training(
     device: str = "cpu",
     text: np.ndarray | None = None,
     lineage_tables: dict[str, Table] | None = None,
+    champion: Champion | None = None,
 ) -> dict:
     """Core routine, no Iceberg/MLflow-URI setup of its own (same split as
     `train_sequence.run_training`) so `tests/model/test_train_agf_smoke.py`
-    can drive it with fixtures under a `file://` tracking URI."""
+    can drive it with fixtures under a `file://` tracking URI.
+
+    `champion` (the current production model, ADR 0013) is scored on the very
+    samples this run validates/tests on; the numbers go into the run so
+    `promote.py` can compare on one split."""
     items_list, meta = catalog_meta(item_rows)
     inter = interactions_from_sequences(user_rows)
     catalog = build_catalog_items(inter, meta, items_list, cfg.use_text, text=text)
@@ -143,6 +149,10 @@ def run_training(
             "train_samples": len(samples["train"]),
             "val_samples": len(samples["valid"]),
         }
+        if champion is not None:
+            champion_metrics, champion_params = evaluate_champion(champion, samples, catalog.tokens)
+            metrics.update(champion_metrics)
+            run_facts.update(champion_params)
 
         with tempfile.TemporaryDirectory(prefix="agf-export-") as tmp:
             exported = T.export(result, cfg, items, Path(tmp), seed)
@@ -168,6 +178,8 @@ def run_training(
         model = result["model"].cpu().eval()
         model_info = mlflow.pytorch.log_model(model, name="model")
         out = {"run_id": run.info.run_id, **metrics, **run_facts}
+        if champion is not None:
+            out["champion_version"] = champion.version
         if register:
             registered = mlflow.register_model(model_info.model_uri, REGISTERED_MODEL_NAME)
             out["registered_model"] = REGISTERED_MODEL_NAME
@@ -193,6 +205,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-text", action="store_true", help="skip the MiniLM text branch (offline)")
     parser.add_argument("--epochs", type=int, default=None, help="override max epochs (quick runs)")
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--no-champion", action="store_true",
+                        help="do not score the production model on this run's split (promote.py then "
+                             "falls back to the legacy comparison)")
     return parser.parse_args()
 
 
@@ -206,8 +221,11 @@ def main() -> int:
 
     mlflow.set_tracking_uri(require_env("MLFLOW_TRACKING_URI"))
     item_rows, user_rows, lineage = load_gold_rows()
+    # A production model that cannot be loaded must stop the run: training on
+    # would make promote.py fall back to the cross-split comparison silently.
+    champion = None if args.no_champion else load_production_champion(REGISTERED_MODEL_NAME)
     result = run_training(item_rows, user_rows, cfg, seed=args.seed, device=args.device,
-                          lineage_tables=lineage)
+                          lineage_tables=lineage, champion=champion)
     print(json.dumps(result))
     return 0
 

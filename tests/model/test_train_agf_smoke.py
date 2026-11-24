@@ -71,6 +71,41 @@ class AGFModelSmokeTest(unittest.TestCase):
         vocab = json.loads(Path(vocab_path).read_text())
         self.assertEqual(len(vocab), len(item_rows))
         self.assertEqual(min(vocab.values()), 1)
+        # No champion given → no same-split numbers in the run.
+        self.assertFalse([key for key in run.data.metrics if key.startswith("champion_")])
+        self.assertNotIn("champion_version", run.data.params)
+
+    def test_second_run_scores_the_champion_on_its_own_split(self) -> None:
+        """ADR 0013: with a champion, the run logs the champion's score on the
+        challenger's valid/test samples. Same data and seed → same split, so the
+        champion path (serving-style scoring from the exported item table) must
+        reproduce the champion's own `val_ndcg_at_10` from `trainer.evaluate`."""
+        import mlflow
+
+        from jobs.training.champion_eval import load_champion
+        from jobs.training.train_agf import CONFIG_PATH, run_training
+        from reco_mlops_libs.ranking.agf.trainer import MethodConfig
+
+        mlflow.set_tracking_uri(f"file://{tempfile.mkdtemp(prefix='mlops4rec-agf-champion-')}")
+        cfg = replace(MethodConfig.from_yaml(CONFIG_PATH), use_text=False, epochs=2, batch_size=64)
+        item_rows, user_rows = load_sample_rows()
+
+        first = run_training(item_rows, user_rows, cfg, seed=2023, register=False)
+        champion = load_champion(f"runs:/{first['run_id']}/model", first["run_id"], "1")
+        second = run_training(item_rows, user_rows, cfg, seed=2023, register=False, champion=champion)
+
+        run = mlflow.MlflowClient().get_run(second["run_id"])
+        self.assertEqual(run.data.params["champion_version"], "1")
+        for split in ("val", "test"):
+            for metric in ("ndcg", "recall"):
+                for k in (10, 20):
+                    self.assertIn(f"champion_{split}_{metric}_at_{k}_same_split", run.data.metrics)
+            self.assertEqual(run.data.params[f"champion_{split}_unknown_target"], "0")
+            self.assertEqual(run.data.params[f"champion_{split}_no_history"], "0")
+        self.assertAlmostEqual(
+            run.data.metrics["champion_val_ndcg_at_10_same_split"], first["val_ndcg_at_10"], places=4)
+        self.assertAlmostEqual(
+            run.data.metrics["champion_test_ndcg_at_10_same_split"], first["test_ndcg_at_10"], places=4)
 
 
 if __name__ == "__main__":
