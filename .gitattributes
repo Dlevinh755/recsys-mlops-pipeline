@@ -1,0 +1,14 @@
+# Ép LF cho mọi file chạy trong container Linux hoặc qua make/bash.
+# Không có file này, `git clone` trên Windows (core.autocrlf=true) đổi sang CRLF
+# và làm hỏng script (vd. infra/minio/init-buckets.sh: "set: -: invalid option").
+* text=auto
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile* text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+*.env.example text eol=lf
+.env.example text eol=lf
