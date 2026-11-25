@@ -76,11 +76,11 @@ ngay một run cho khoảng trước. Đặt lại baseline về `train.parquet`
 docker compose --profile jobs run --rm training-job jobs.training.train_agf --candidates gru4rec,sasrec,gru4rec_sum
 ```
 
-Id hợp lệ: `gru4rec` (mặc định), `sasrec`, `gru4rec_sum`, `gru4rec_idonly`. Mỗi ứng viên là
+Id hợp lệ: `gru4rec` (cấu hình gốc, mốc so sánh), `sasrec`, `gru4rec_sum`, `gru4rec_idonly`. Từ ADR 0016, `docker compose` và `.env.example` mặc định chạy ba ứng viên `gru4rec,sasrec,gru4rec_sum` (lệnh trên chỉ để ghi tường minh). Mỗi ứng viên là
 một run MLflow cùng `candidate_group`; chỉ người thắng được đăng ký (đọc `selected_from`,
 `candidate_<id>_val_ndcg_at_10` ở run đó, `candidate_selected` ở mọi run). Qua Airflow:
 đặt `TRAIN_CANDIDATES=...` trong `.env` rồi `docker compose restart airflow-scheduler`;
-đặt lại `gru4rec` để về một ứng viên. Mỗi ứng viên thêm ~2 phút.
+đặt `TRAIN_CANDIDATES=gru4rec` để về một ứng viên. Mỗi ứng viên thêm ~2 phút (mặc định 3 ứng viên ≈ 6–7 phút).
 
 ## Rollback model thủ công
 

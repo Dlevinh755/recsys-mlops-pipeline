@@ -344,8 +344,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=None, help="override max epochs (quick runs)")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--candidates", default=os.getenv("TRAIN_CANDIDATES"),
-                        help="comma-separated ids from jobs/training/candidates.py (default gru4rec; env "
-                             "TRAIN_CANDIDATES): trains each, registers only the selected one")
+                        help="comma-separated ids from jobs/training/candidates.py (env TRAIN_CANDIDATES; compose/"
+                             ".env.example default gru4rec,sasrec,gru4rec_sum, code fallback gru4rec): trains each, registers only the selected one")
     parser.add_argument("--no-champion", action="store_true",
                         help="do not score the production model on this run's split (promote.py then "
                              "falls back to the legacy comparison)")

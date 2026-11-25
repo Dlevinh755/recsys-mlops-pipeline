@@ -325,7 +325,7 @@ run xanh. Bảng đầy đủ ở ADR 0014. Production đã chuyển v4 → v8.
 `train_agf --candidates gru4rec,sasrec,gru4rec_sum` (hoặc `TRAIN_CANDIDATES`) huấn luyện
 từng ứng viên trên cùng split, mỗi ứng viên một run MLflow, chọn một trên valid theo luật
 "hơn mặc định và vượt 1 sai số chuẩn của hiệu theo cặp" (`jobs/training/candidates.py`) và
-chỉ đăng ký người thắng. Mặc định `gru4rec`: một run, như trước. Điều kiện của spec đã
+chỉ đăng ký người thắng. Lúc làm (2026-11-24) mặc định là `gru4rec`, một run; từ 2026-11-25 mặc định là ba ứng viên (ADR 0016). Điều kiện của spec đã
 thoả trước khi làm: `serving/tests/test_score_candidates.py` có thêm ca `sasrec`,
 `fusion=sum`, `id_only`, chấm khớp `item_table @ state`.
 

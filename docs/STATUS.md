@@ -121,7 +121,7 @@ soát, theo thứ tự ưu tiên đề xuất (chưa làm, chưa có code):
    2026-11-24** (cổng promote so cùng split, ADR 0013; `retrain_decision`,
    `refresh_baseline`, `dag_continuous_training`, ADR 0014; đã chạy thật: v8 được
    promote, chạy lại thì `retrain=false`). **Phần F (đa ứng viên) đã làm
-   2026-11-24** (ADR 0015, `TRAIN_CANDIDATES`; mặc định vẫn một ứng viên `gru4rec`).
+   2026-11-24** (ADR 0015, `TRAIN_CANDIDATES`; từ 2026-11-25 mặc định chạy ba ứng viên, ADR 0016).
 5. **Chưa có Alertmanager.** ~~`expire_snapshots`~~ đã làm (ADR 0012); chưa chạy xoá thật vì chưa snapshot nào quá 7 ngày.
 6. ~~`fastapi`/`uvicorn` chưa ghim~~ — đã ghim 2026-11-24 (`fastapi==0.163.2`,
    `uvicorn[standard]==0.34.0`, ADR 0007); `redis` cố ý không ghim vì feast cap `<5`.
@@ -178,5 +178,7 @@ khỏi `de-xuat-trien-khai.md`/`bao-cao-ky-thuat.md`:
   cùng split của challenger (`>` chặt, fallback `legacy`)
 - [0015](decisions/0015-nhieu-ung-vien-agf-chon-tren-valid.md) — Nhiều ứng viên AGF
   mỗi lần train, chọn trên valid (hơn mặc định và vượt 1 SE), chỉ đăng ký người thắng
+- [0016](decisions/0016-ba-ung-vien-la-mac-dinh.md) — Ba ứng viên AGF (`gru4rec,sasrec,gru4rec_sum`)
+  là mặc định của compose/`.env.example` thay vì một ứng viên
 - [0014](decisions/0014-vong-lap-drift-retrain.md) — Vòng lặp drift → retrain:
   quyết định ở job, baseline dịch theo model production, `dag_continuous_training`

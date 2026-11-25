@@ -82,7 +82,7 @@ bảng chỉ là một lần chạy, chưa lặp qua nhiều seed. Run MLflow: b
 ## Hệ quả
 
 - Thời gian train gấp ba (~6 phút cho 3 ứng viên có nhánh text, so với ~2 phút).
-  `.env.example` ghi `TRAIN_CANDIDATES=gru4rec` mặc định.
+  `.env.example` ghi `TRAIN_CANDIDATES=gru4rec` mặc định (đã đổi thành ba ứng viên ở ADR 0016).
 - Registry chỉ giữ người thắng: xem ứng viên thua trong MLflow (`candidate_group`).
 - **Winner's curse**: chọn 1 trong K trên ~1,5K mẫu valid vẫn lạc quan nhẹ; K−1 phép so
   với mặc định không hiệu chỉnh đa so sánh. Không tuyên bố "tốt hơn có ý nghĩa thống kê".

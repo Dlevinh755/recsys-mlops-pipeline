@@ -225,7 +225,7 @@ make train-gru4rec                            # GRU4Rec chỉ-ID cũ (ADR 0004),
 Cổng promote không so hai số `val_ndcg_at_10` của hai run (hai tập valid khác nhau khi
 dữ liệu đổi): `train_agf` chấm lại model `production` trên split của model mới và ghi
 `champion_val_ndcg_at_10_same_split`; `promote` so với số đó (`>` chặt, `--min-delta`).
-Nhiều ứng viên: mặc định `TRAIN_CANDIDATES=gru4rec`; chọn người thắng trên valid, hơn mặc định
+Nhiều ứng viên: mặc định `TRAIN_CANDIDATES=gru4rec,sasrec,gru4rec_sum` (ADR 0016; đặt `gru4rec` để chỉ train một ứng viên, ~2 phút); chọn người thắng trên valid, hơn `gru4rec`
 và vượt 1 sai số chuẩn mới thắng. Xem ADR 0013 và 0015.
 
 MLflow UI: http://localhost:5000 (experiment/registry `reco-mlops-agf`; metric
