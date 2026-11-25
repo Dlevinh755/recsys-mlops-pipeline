@@ -23,6 +23,9 @@ Feast/Redis) đã xong; Phase 4–8 đã xong; Phase 10 (AGF, ADR 0008) — xem
 - Docker Engine hoặc Docker Desktop có Docker Compose v2
 - GNU Make (không bắt buộc; có thể chạy trực tiếp `docker compose`)
 - Python 3.11+ cho công cụ phát triển
+- Windows: cần **Git Bash** để chạy `scripts/*.sh` (lệnh `bash` trong PowerShell có thể trỏ
+  vào WSL chưa cài distro); máy không có `make` thì dùng bảng tương đương trong
+  [`docs/runbook.md`](docs/runbook.md) mục "Máy mới / clone sạch"
 
 ## Khởi động Phase 0
 
@@ -32,6 +35,32 @@ make up
 make ps
 make smoke
 ```
+
+### Máy mới / clone sạch (đọc trước khi chạy pipeline)
+
+`make up` (= `docker compose up -d --build`) chỉ build image của các service chạy thường trực
+(`serving`, `ui`, `mlflow`, Airflow). **Năm image job** — `extract`, `transform`, `materialize`,
+`training`, `monitoring` — thuộc profile `jobs` và **không** được build; máy chưa có image
+`:dev` thì mọi DAG fail. Build một lần (lần đầu ≈ 15–20 phút, tải PyTorch, Evidently…):
+
+```bash
+docker compose --profile jobs build
+```
+
+Ngoài ra:
+
+- **Airflow tự lên cùng `docker compose up`** (không cần `make airflow-up` riêng). 7 DAG đã bật
+  sẵn, chỉ `dag_continuous_training` tạm dừng; các DAG chạy khi trigger tay (`schedule=None`).
+- **Windows**: repo có `.gitattributes` ép LF cho `.sh`, `Makefile`, `Dockerfile*`, `.sql`...;
+  nếu bản clone cũ hơn commit này thì script bị CRLF và `minio-init` chết với
+  `set: -: invalid option`. Sửa: `git add --renormalize . && git checkout -- .`.
+- **Tên project Compose** mặc định là `recommendation-mlops` bất kể tên thư mục, nên hai bản
+  clone dùng chung volume. Muốn bản riêng, thêm `COMPOSE_PROJECT_NAME=<tên>` vào `.env`
+  trước `docker compose up`.
+- **`amazone_data/` không nằm trong git.** Dữ liệu seed đã nhúng trong
+  `infra/source-db/init/seed_data_amazon.sql` nên pipeline chạy được; nhưng baseline giám sát
+  (`train.parquet`) và demo drift (`incoming/*.parquet`) cần thư mục đó — xem mục Phase 7 và
+  "Nạp lô dữ liệu mới", truyền `--train-parquet` / `--data-dir` nếu nó không nằm cạnh repo.
 
 Các cổng local:
 
@@ -144,6 +173,7 @@ drift thật. `scripts/load_incoming_batch.py` nạp chúng vào `source-db` đa
 ```bash
 python scripts/load_incoming_batch.py --all --dry-run   # chỉ in thống kê (số dòng, tỷ lệ item lạ)
 python scripts/load_incoming_batch.py --all             # hoặc --batch 0 1 2
+# amazone_data không cạnh repo: thêm --data-dir <đường dẫn>/amazone_data/data_split
 ```
 
 Sau đó chạy lại `dag_ingest → dag_transform → …` (hoặc `dag_continuous_training`). Khi
@@ -268,8 +298,9 @@ GRU (Hướng B), và lý do hạ version `feast`:
 
 ## Chạy Phase 6 orchestration (Airflow)
 
-Bật riêng, không thuộc `make up` (mọi job đã chạy độc lập ở các phase
-trước — Airflow chỉ gọi lại theo lịch/qua UI):
+Airflow tự lên cùng `docker compose up`; `make airflow-up` chỉ dùng để build/khởi động riêng
+khi cần (mọi job đã chạy độc lập ở các phase trước — Airflow chỉ gọi lại theo lịch/qua UI).
+Nhớ build image job trước (`docker compose --profile jobs build`):
 
 ```bash
 make airflow-up
@@ -312,11 +343,14 @@ locust -f tests/load/locustfile.py --host http://localhost:8000
 ```
 
 Giám sát dữ liệu/mô hình (Evidently) cần seed baseline 1 lần trước
-(`amazone_data/data_split/train.parquet` → MinIO):
+(`amazone_data/data_split/train.parquet` → MinIO). **Thiếu bước này thì `data_drift_report`
+(và `dag_monitoring`) fail với `FileNotFoundError: monitoring-baseline/train.parquet`**:
 
 ```bash
 python -m pip install s3fs
 python scripts/upload_monitoring_baseline.py
+# amazone_data không cạnh repo (vd. bản clone riêng):
+python scripts/upload_monitoring_baseline.py --train-parquet <đường dẫn>/amazone_data/data_split/train.parquet
 ```
 
 Rồi chạy qua Airflow (`dag_monitoring`, cần `make airflow-up` trước) hoặc

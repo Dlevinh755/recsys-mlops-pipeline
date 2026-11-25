@@ -8,13 +8,47 @@
 ```bash
 make up            # hạ tầng core (Postgres, MinIO, Lakekeeper, MLflow,
                     # Redis, serving, ui) + Prometheus/Grafana (override
-                    # tự nạp)
-make airflow-up     # Airflow (riêng, không thuộc make up)
+                    # tự nạp) + Airflow (tự lên cùng docker compose up)
+docker compose --profile jobs build   # 5 image job (extract, transform, materialize,
+                    # training, monitoring) — KHÔNG nằm trong make up; bắt buộc
+                    # trên máy mới, lần đầu ≈ 15–20 phút
+make airflow-up     # chỉ để build/khởi động riêng Airflow khi cần
 docker compose -p mlops4rec-jenkins --env-file .env -f infra/jenkins/docker-compose.jenkins.yml up -d --build   # Jenkins (riêng)
 
 make down           # dừng, giữ volume
 make clean          # dừng + XOÁ volume (mất toàn bộ dữ liệu local)
 ```
+
+## Máy mới / clone sạch
+
+Thứ tự đã kiểm chứng 25–26/11/2026 (Windows + Docker Desktop, commit `c1ab91f` + sửa sau đó):
+
+1. `cp .env.example .env` (tuỳ chọn thêm `COMPOSE_PROJECT_NAME=<tên>` để tách volume khỏi stack khác).
+2. `docker compose up -d --build` (≈ 5–6 phút), rồi `bash scripts/smoke_test.sh` (Git Bash).
+3. `docker compose --profile jobs build` (≈ 15–20 phút lần đầu).
+4. Airflow http://localhost:8080 (`AIRFLOW_ADMIN_USER`/`AIRFLOW_ADMIN_PASSWORD` trong `.env`):
+   trigger lần lượt `dag_ingest` → `dag_transform` → `dag_features_candidates` →
+   `dag_materialize` → `dag_training` (≈ 0,5 / 0,6 / 0,4 / 0,8 / 8 phút; 8 phút vì 3 ứng viên).
+5. Giám sát: `python scripts/upload_monitoring_baseline.py [--train-parquet ...]` rồi `dag_monitoring`.
+
+Không có `make` (Windows) — tương đương, chạy từ thư mục gốc repo:
+
+| `make` | Lệnh thay thế |
+|---|---|
+| `make up` | `docker compose up -d --build` |
+| `make smoke` | `bash scripts/smoke_test.sh` |
+| `make extract` | `bash scripts/run_job_locally.sh extract` |
+| `make bronze` / `silver` / `gold` | `docker compose --profile jobs run --rm transform-job jobs.transform.build_bronze` (`build_silver`, `build_gold`) |
+| `make user-features` | `docker compose --profile jobs run --rm transform-job jobs.features.build_user_features` |
+| `make train` | `docker compose --profile jobs run --rm training-job jobs.training.train_agf` |
+| `make promote` | `docker compose --profile jobs run --rm training-job jobs.training.promote` |
+| `make similar-items` | `docker compose --profile jobs run --rm training-job jobs.candidates.similar_items` |
+| `make airflow-up` | `docker compose build airflow-init airflow-webserver airflow-scheduler`, rồi `docker compose up -d airflow-db airflow-init airflow-webserver airflow-scheduler` |
+| `make down` | `docker compose down --remove-orphans` |
+| `make clean` | `docker compose down --volumes --remove-orphans`, xoá `data/dlt-pipelines/reco_extract_*` |
+
+`bash` trong PowerShell có thể trỏ vào WSL chưa cài distro (`execvpe(/bin/bash) failed`): dùng
+Git Bash, hoặc `& "C:\Program Files\Git\bin\bash.exe" scripts/smoke_test.sh`.
 
 ## Pipeline thủ công (không qua Airflow)
 
@@ -120,6 +154,9 @@ docker compose restart serving
 | Jenkins `Build & Push Images` fail, các stage khác pass | `dockerhub-creds` chưa có Access Token thật (mặc định để trống) | Set `DOCKERHUB_TOKEN` trong `.env`, restart Jenkins container để JCasC nạp lại |
 | Ruff/pytest báo lỗi cache "Read-only file system" khi lint qua bind-mount | Mount `:ro` không ghi cache được | Dùng `ruff check --no-cache` (đã áp dụng trong `Jenkinsfile`) |
 | Job transform (`build_bronze/silver/gold`) fail `Access Denied` khi đọc/ghi MinIO, dù catalog tạo bảng bình thường | Lakekeeper dùng remote signing và trả `s3.signer.uri` là `http://localhost:8181/catalog/`; trong container job, `localhost` không phải Lakekeeper nên chữ ký S3 không lấy được | Đặt `LAKEKEEPER__BASE_URI=http://lakekeeper:8181/` trong `infra/iceberg-catalog/catalog.env`, rồi `docker compose up -d --force-recreate lakekeeper`. Kiểm tra: `curl.exe -s http://localhost:8181/catalog/v1/<warehouse-id>/namespaces/silver/tables/products` phải có `"s3.signer.uri":"http://lakekeeper:8181/catalog/"` (đã xác nhận với Lakekeeper v0.12.1) |
+| `docker compose up` báo `minio-init ... exit 2`, log `set: -: invalid option` | Script `.sh` bị đổi sang CRLF khi clone trên Windows (`core.autocrlf=true`) — repo thiếu `.gitattributes` trước commit `105736e` | `git pull` lấy `.gitattributes`, rồi `git add --renormalize . && git checkout -- .` và `docker compose up -d` lại |
+| DAG fail vì không thấy image `local/mlops4rec-<job>:dev` hoặc chạy mã cũ (vd. `dag_training` chỉ ra 1 run dù `TRAIN_CANDIDATES` có 3) | Image job (profile `jobs`) không được `docker compose up` build; còn lại image cũ hoặc không có | `docker compose --profile jobs build`, rồi `docker compose restart airflow-scheduler` |
+| `dag_monitoring` / `data_drift_report` fail `FileNotFoundError: monitoring-baseline/train.parquet` | Chưa nạp baseline giám sát | `python scripts/upload_monitoring_baseline.py` (thêm `--train-parquet` nếu `amazone_data` không cạnh repo) |
 | Silver lệch Bronze (thiếu/thừa dòng), vừa đổi schema hoặc `sql/silver/*.sql`, hoặc `build_silver` báo `Target table has duplicate rows, aborting upsert` | Silver tăng dần chỉ xử lý Bronze nạp sau watermark `reco.silver.watermark_ingested_at` (ADR 0010); đổi schema/SQL không tự áp dụng lại cho dòng cũ, và lần `build_bronze` chạy chồng nhau có thể để sót dòng dưới watermark | Tính lại toàn bộ Silver: `docker compose --profile jobs run --rm transform-job jobs.transform.build_silver --full-refresh` (chạy lại `build_gold` sau đó). Kiểm tra: kết quả JSON có `"mode": "full"`, rồi lần chạy kế tiếp trả `"mode": "incremental"` với `bronze_rows_scanned` = 0 |
 
 ## Reset hoàn toàn (cold start)
@@ -127,9 +164,12 @@ docker compose restart serving
 ```bash
 make clean          # xoá volume core + state extract của dlt (data/dlt-pipelines/)
 make airflow-down   # (nếu đang chạy)
-make up
-make airflow-up
+make up             # Airflow tự lên cùng; image job còn nguyên (không bị clean)
 ```
+
+Máy chưa từng build image job thì chạy thêm `docker compose --profile jobs build` (xem mục
+"Máy mới / clone sạch"); sau khi reset, bucket `monitoring-baseline` cũng mất nên nạp lại
+baseline bằng `scripts/upload_monitoring_baseline.py`.
 
 `data/dlt-pipelines/` là bind mount trên máy host, **không** nằm trong Docker
 volume. Nếu còn state cũ ở đó thì `last_value` của extract vẫn là mốc của lần
