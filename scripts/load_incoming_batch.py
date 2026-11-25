@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,6 +37,9 @@ from seed_source_db import (  # cùng thư mục scripts/
 
 
 def main() -> int:
+    # Console Windows mặc định cp1252 không in được tiếng Việt (UnicodeEncodeError).
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     group = parser.add_mutually_exclusive_group(required=True)
